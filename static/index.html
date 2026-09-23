@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Сферум.Ассистент</title>
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- Шапка кабинета -->
+    <header class="glass-panel header">
+      <div>
+        <div class="logo-badge">Сферум.Ассистент</div>
+        <h1 id="teacher-name">Кабинет учителя</h1>
+      </div>
+      <div class="class-pill">9-А класс</div>
+    </header>
+
+    <!-- Переключатель разделов -->
+    <nav class="tab-switcher">
+      <button class="tab-btn active" id="tab-tasks-btn" onclick="showTab('tasks')">
+        Задания
+      </button>
+      <button class="tab-btn" id="tab-absences-btn" onclick="showTab('absences')">
+        Справки
+      </button>
+    </nav>
+
+    <!-- Вкладка заданий -->
+    <main id="tab-tasks" class="tab-content active">
+      <div class="section-title-row">
+        <h2>Текущие задания</h2>
+        <button class="action-btn-sm" onclick="toggleTaskForm()">+ Создать</button>
+      </div>
+
+      <!-- Форма создания нового задания -->
+      <form id="task-form" class="glass-panel create-form hidden" onsubmit="handleCreateTask(event)">
+        <h3>Новое домашнее задание</h3>
+        
+        <label for="task-subject">Предмет</label>
+        <input type="text" id="task-subject" placeholder="Алгебра" required>
+
+        <label for="task-title">Описание задания</label>
+        <textarea id="task-title" placeholder="Параграф 14, №210, 214" rows="2" required></textarea>
+
+        <label for="task-deadline">Срок сдачи</label>
+        <input type="text" id="task-deadline" placeholder="Пятница, 10:00" required>
+
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="toggleTaskForm()">Отмена</button>
+          <button type="submit" class="btn-primary">Опубликовать</button>
+        </div>
+      </form>
+
+      <!-- Контейнер для карточек заданий -->
+      <div id="tasks-container" class="cards-list">
+        <div class="empty-state">Загрузка заданий...</div>
+      </div>
+    </main>
+
+    <!-- Вкладка справок и отсутствующих -->
+    <section id="tab-absences" class="tab-content">
+      <div class="section-title-row">
+        <h2>Реестр отсутствующих</h2>
+      </div>
+
+      <div id="absences-container" class="cards-list">
+        <div class="empty-state">Загрузка данных...</div>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
