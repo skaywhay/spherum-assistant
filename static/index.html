@@ -3,76 +3,671 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Сферум.Ассистент</title>
-  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <title>Сферум.Ассистент — Школьный электронный документооборот</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app-container">
 
-    <!-- Шапка кабинета -->
-    <header class="glass-panel header">
-      <div>
-        <div class="logo-badge">Сферум.Ассистент</div>
-        <h1 id="teacher-name">Кабинет учителя</h1>
-      </div>
-      <div class="class-pill">9-А класс</div>
-    </header>
-
-    <!-- Переключатель разделов -->
-    <nav class="tab-switcher">
-      <button class="tab-btn active" id="tab-tasks-btn" onclick="showTab('tasks')">
-        Задания
-      </button>
-      <button class="tab-btn" id="tab-absences-btn" onclick="showTab('absences')">
-        Справки
-      </button>
-    </nav>
-
-    <!-- Вкладка заданий -->
-    <main id="tab-tasks" class="tab-content active">
-      <div class="section-title-row">
-        <h2>Текущие задания</h2>
-        <button class="action-btn-sm" onclick="toggleTaskForm()">+ Создать</button>
-      </div>
-
-      <!-- Форма создания нового задания -->
-      <form id="task-form" class="glass-panel create-form hidden" onsubmit="handleCreateTask(event)">
-        <h3>Новое домашнее задание</h3>
-        
-        <label for="task-subject">Предмет</label>
-        <input type="text" id="task-subject" placeholder="Алгебра" required>
-
-        <label for="task-title">Описание задания</label>
-        <textarea id="task-title" placeholder="Параграф 14, №210, 214" rows="2" required></textarea>
-
-        <label for="task-deadline">Срок сдачи</label>
-        <input type="text" id="task-deadline" placeholder="Пятница, 10:00" required>
-
-        <div class="form-actions">
-          <button type="button" class="btn-secondary" onclick="toggleTaskForm()">Отмена</button>
-          <button type="submit" class="btn-primary">Опубликовать</button>
+  <!-- Верхняя панель (для авторизованных) -->
+  <header id="main-header" class="main-header hidden">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-logo">С</div>
+        <div class="brand-info">
+          <div class="brand-title-wrap">
+            <span class="brand-title">Сферум.Ассистент</span>
+            <span id="user-role-badge" class="badge-role">Учитель</span>
+          </div>
+          <span class="brand-subtitle">Электронный документооборот и кружки</span>
         </div>
-      </form>
-
-      <!-- Контейнер для карточек заданий -->
-      <div id="tasks-container" class="cards-list">
-        <div class="empty-state">Загрузка заданий...</div>
-      </div>
-    </main>
-
-    <!-- Вкладка справок и отсутствующих -->
-    <section id="tab-absences" class="tab-content">
-      <div class="section-title-row">
-        <h2>Реестр отсутствующих</h2>
       </div>
 
-      <div id="absences-container" class="cards-list">
-        <div class="empty-state">Загрузка данных...</div>
+      <nav class="user-nav">
+        <div class="user-meta">
+          <div id="user-display-name" class="user-name">Загрузка...</div>
+          <div id="user-display-class" class="user-class">Класс: 9-А</div>
+        </div>
+        <button type="button" id="btn-logout" class="btn btn-outline btn-sm">Выйти</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- ЭКРАН 1: АВТОРИЗАЦИЯ -->
+    <section id="auth-screen" class="screen">
+      <div class="auth-wrapper">
+        
+        <!-- Быстрый демо-вход для жюри -->
+        <div class="demo-section">
+          <div class="section-title-wrap">
+            <h2 class="section-title">Быстрый вход для жюри и проверки</h2>
+            <p class="section-desc">Нажмите на карточку любого пользователя для моментального входа</p>
+          </div>
+
+          <div class="demo-grid">
+            <button type="button" class="demo-card" data-email="teacher9a@sferum.ru" data-pass="password123">
+              <span class="demo-badge badge-teacher">Учитель 9-А</span>
+              <strong class="demo-name">Смирнова Елена Викторовна</strong>
+              <span class="demo-desc">Классный руководитель 9-А</span>
+              <span class="demo-action">Войти как учитель →</span>
+            </button>
+
+            <button type="button" class="demo-card" data-email="teacher10b@sferum.ru" data-pass="password123">
+              <span class="demo-badge badge-teacher">Учитель 10-Б</span>
+              <strong class="demo-name">Васильев Михаил Сергеевич</strong>
+              <span class="demo-desc">Классный руководитель 10-Б</span>
+              <span class="demo-action">Войти как учитель →</span>
+            </button>
+
+            <button type="button" class="demo-card" data-email="student9a@sferum.ru" data-pass="password123">
+              <span class="demo-badge badge-student">Ученик 9-А</span>
+              <strong class="demo-name">Кузнецов Артём</strong>
+              <span class="demo-desc">Учащийся 9-А класса</span>
+              <span class="demo-action">Войти как ученик →</span>
+            </button>
+
+            <button type="button" class="demo-card" data-email="student10b@sferum.ru" data-pass="password123">
+              <span class="demo-badge badge-student">Ученик 10-Б</span>
+              <strong class="demo-name">Морозова София</strong>
+              <span class="demo-desc">Учащаяся 10-Б класса</span>
+              <span class="demo-action">Войти как ученик →</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Форма входа / регистрации -->
+        <div class="auth-card">
+          <div class="auth-tabs">
+            <button type="button" id="tab-btn-signin" class="tab-btn active">Вход в систему</button>
+            <button type="button" id="tab-btn-signup" class="tab-btn">Регистрация</button>
+          </div>
+
+          <div id="auth-error-box" class="alert-error hidden"></div>
+
+          <!-- Форма входа -->
+          <form id="form-signin" class="auth-form">
+            <div class="form-group">
+              <label for="signin-email">Электронная почта</label>
+              <input type="email" id="signin-email" required placeholder="user@school.ru">
+            </div>
+
+            <div class="form-group">
+              <label for="signin-password">Пароль</label>
+              <input type="password" id="signin-password" required placeholder="••••••••">
+            </div>
+
+            <button type="submit" id="btn-submit-signin" class="btn btn-primary btn-block">
+              Войти в систему
+            </button>
+          </form>
+
+          <!-- Форма регистрации -->
+          <form id="form-signup" class="auth-form hidden">
+            <div class="form-group">
+              <label for="signup-name">Ф.И.О.</label>
+              <input type="text" id="signup-name" required placeholder="Иванов Иван Иванович">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="signup-role">Роль в системе</label>
+                <select id="signup-role">
+                  <option value="teacher">Учитель</option>
+                  <option value="student">Ученик</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="signup-class">Класс</label>
+                <select id="signup-class">
+                  <option value="9-А">9-А</option>
+                  <option value="10-Б">10-Б</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="signup-email">Электронная почта</label>
+              <input type="email" id="signup-email" required placeholder="new_user@school.ru">
+            </div>
+
+            <div class="form-group">
+              <label for="signup-password">Пароль</label>
+              <input type="password" id="signup-password" required placeholder="••••••••">
+            </div>
+
+            <button type="submit" id="btn-submit-signup" class="btn btn-primary btn-block">
+              Зарегистрироваться
+            </button>
+          </form>
+        </div>
+
       </div>
     </section>
 
+    <!-- ЭКРАН 2: КАБИНЕТ УЧИТЕЛЯ -->
+    <section id="teacher-screen" class="screen hidden">
+      <div class="container">
+        
+        <!-- Карточки статистики -->
+        <div class="stats-grid">
+          <div class="stat-card" id="stat-teacher-pending">
+            <div class="stat-label">Справок на проверке</div>
+            <div id="stat-val-pending" class="stat-val text-amber">0</div>
+            <div class="stat-sub">Ожидают подтверждения</div>
+          </div>
+
+          <div class="stat-card" id="stat-teacher-approved">
+            <div class="stat-label">Принятых справок</div>
+            <div id="stat-val-approved" class="stat-val text-emerald">0</div>
+            <div class="stat-sub">За текущую четверть</div>
+          </div>
+
+          <div class="stat-card" id="stat-teacher-clubs">
+            <div class="stat-label">Заявок в кружки</div>
+            <div id="stat-val-clubs" class="stat-val text-indigo">0</div>
+            <div class="stat-sub">Внеурочная деятельность</div>
+          </div>
+
+          <div class="stat-card stat-card-action" id="btn-open-roster">
+            <div class="stat-label">Учеников в классе</div>
+            <div class="stat-val">28</div>
+            <div class="stat-sub text-blue">Открыть журнал класса →</div>
+          </div>
+        </div>
+
+        <!-- Вкладки учителя -->
+        <div class="screen-tabs">
+          <button type="button" id="tab-teacher-absences" class="screen-tab-btn active">
+            Справки и заявления
+          </button>
+          <button type="button" id="tab-teacher-clubs" class="screen-tab-btn">
+            Кружки и секции
+            <span id="badge-teacher-apps-count" class="tab-badge hidden">0</span>
+          </button>
+        </div>
+
+        <!-- Контент вкладки: Справки -->
+        <div id="content-teacher-absences" class="tab-content">
+          <div class="toolbar">
+            <div class="filter-group">
+              <span class="toolbar-label">Фильтр:</span>
+              <button type="button" class="chip active" data-filter="all">Все</button>
+              <button type="button" class="chip" data-filter="pending">На проверке</button>
+              <button type="button" class="chip" data-filter="approved">Одобренные</button>
+              <button type="button" class="chip" data-filter="rejected">Отклоненные</button>
+            </div>
+
+            <div class="toolbar-actions">
+              <input type="text" id="teacher-search-input" class="search-input" placeholder="Поиск по ученику или причине...">
+              <button type="button" id="btn-open-add-absence" class="btn btn-primary btn-sm">+ Внести справку</button>
+              <button type="button" id="btn-open-roster-secondary" class="btn btn-outline btn-sm">Журнал класса (28)</button>
+              <button type="button" id="btn-teacher-refresh" class="btn btn-icon" title="Обновить">↻</button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Ученик</th>
+                  <th>Причина отсутствия</th>
+                  <th>Период</th>
+                  <th>Скан документа</th>
+                  <th>Статус</th>
+                  <th class="text-right">Решение</th>
+                </tr>
+              </thead>
+              <tbody id="teacher-absences-tbody">
+                <tr><td colspan="6" class="text-center text-muted py-4">Загрузка данных журнала...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Контент вкладки: Кружки -->
+        <div id="content-teacher-clubs" class="tab-content hidden">
+          <div class="section-header">
+            <h3>Заявления учеников в секции и кружки</h3>
+            <p class="text-muted text-sm">Проверьте заявки от родителей и примите решение о зачислении</p>
+          </div>
+
+          <div class="table-card mb-6">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Ученик</th>
+                  <th>Название кружка</th>
+                  <th>Ф.И.О. родителя</th>
+                  <th>Телефон</th>
+                  <th>Статус</th>
+                  <th class="text-right">Решение</th>
+                </tr>
+              </thead>
+              <tbody id="teacher-clubs-tbody">
+                <tr><td colspan="6" class="text-center text-muted py-4">Загрузка заявлений...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section-header">
+            <h3>Школьные кружки и секции</h3>
+          </div>
+          <div id="teacher-clubs-catalog" class="cards-grid"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ЭКРАН 3: КАБИНЕТ УЧАЩЕГОСЯ -->
+    <section id="student-screen" class="screen hidden">
+      <div class="container">
+        
+        <!-- Карточки статистики ученика -->
+        <div class="stats-grid">
+          <div class="stat-card" id="stat-student-total">
+            <div class="stat-label">Подано справок</div>
+            <div id="stat-student-val-total" class="stat-val">0</div>
+            <div class="stat-sub">Всего обращений</div>
+          </div>
+
+          <div class="stat-card" id="stat-student-approved">
+            <div class="stat-label">Одобрено</div>
+            <div id="stat-student-val-approved" class="stat-val text-emerald">0</div>
+            <div class="stat-sub">Принято учителем</div>
+          </div>
+
+          <div class="stat-card" id="stat-student-pending">
+            <div class="stat-label">На проверке</div>
+            <div id="stat-student-val-pending" class="stat-val text-amber">0</div>
+            <div class="stat-sub">Ожидает решения</div>
+          </div>
+
+          <div class="stat-card" id="stat-student-clubs">
+            <div class="stat-label">Мои кружки</div>
+            <div id="stat-student-val-clubs" class="stat-val text-indigo">0</div>
+            <div class="stat-sub">Подано заявлений</div>
+          </div>
+        </div>
+
+        <!-- Вкладки ученика -->
+        <div class="screen-tabs">
+          <button type="button" id="tab-student-submit" class="screen-tab-btn active">
+            Подать справку
+          </button>
+          <button type="button" id="tab-student-history" class="screen-tab-btn">
+            Мои справки
+            <span id="badge-student-history-count" class="tab-badge hidden">0</span>
+          </button>
+          <button type="button" id="tab-student-clubs" class="screen-tab-btn">
+            Кружки и секции
+            <span id="badge-student-clubs-count" class="tab-badge">4</span>
+          </button>
+        </div>
+
+        <!-- Вкладка 1: Форма подачи справки -->
+        <div id="content-student-submit" class="tab-content">
+          <div class="form-card max-w-xl mx-auto">
+            <div class="card-header">
+              <h3>Электронная подача справки об отсутствии</h3>
+              <p class="text-muted text-sm">Документ сразу поступит классному руководителю на согласование</p>
+            </div>
+
+            <form id="form-submit-absence" class="auth-form">
+              <div class="form-group">
+                <label for="absence-reason-select">Причина отсутствия</label>
+                <select id="absence-reason-select">
+                  <option value="Болезнь (справка от врача / медучреждения)">
+                    Болезнь (справка по форме 095/у)
+                  </option>
+                  <option value="По семейным обстоятельствам (заявление родителей)">
+                    По семейным обстоятельствам (заявление родителей)
+                  </option>
+                  <option value="Участие во Всероссийской олимпиаде школьников">
+                    Участие в олимпиаде (ВсОШ / официальный вызов)
+                  </option>
+                  <option value="Освобождение дежурного администратора / завуча">
+                    Освобождение дежурного завуча (талон)
+                  </option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="absence-date-start">Дата начала</label>
+                  <input type="date" id="absence-date-start" required>
+                </div>
+                <div class="form-group">
+                  <label for="absence-date-end">Дата окончания</label>
+                  <input type="date" id="absence-date-end" required>
+                </div>
+              </div>
+
+              <div class="form-check-card">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="absence-has-file" checked>
+                  <span class="checkmark"></span>
+                  <div class="checkbox-text">
+                    <strong>Прикрепить электронный подтверждающий документ</strong>
+                    <span class="text-muted text-xs block">Будет сформирован верифицированный скан бланка</span>
+                  </div>
+                </label>
+              </div>
+
+              <button type="submit" id="btn-submit-absence" class="btn btn-primary btn-block">
+                Отправить справку учителю
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Вкладка 2: История справок -->
+        <div id="content-student-history" class="tab-content hidden">
+          <div class="table-card">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Причина отсутствия</th>
+                  <th>Период</th>
+                  <th>Класс</th>
+                  <th>Скан документа</th>
+                  <th>Статус проверки</th>
+                </tr>
+              </thead>
+              <tbody id="student-history-tbody">
+                <tr><td colspan="5" class="text-center text-muted py-4">Загрузка истории справок...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Вкладка 3: Кружки для ученика -->
+        <div id="content-student-clubs" class="tab-content hidden">
+          <div class="section-header">
+            <h3>Каталог кружков и секций</h3>
+            <p class="text-muted text-sm">Выберите направление и подайте онлайн-заявление на зачисление</p>
+          </div>
+          <div id="student-clubs-catalog" class="cards-grid"></div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ПРОСМОТР ДОКУМЕНТА (4 ТИПА БЛАНКОВ) -->
+  <div id="modal-doc" class="modal-backdrop hidden">
+    <div class="modal-box modal-doc-box">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Электронный скан документа</h3>
+          <p id="doc-modal-student" class="modal-subtitle">Ученик: —</p>
+        </div>
+        <button type="button" class="btn-close-modal" data-modal="modal-doc">✕</button>
+      </div>
+
+      <div class="modal-body doc-modal-body">
+        
+        <!-- Бланк 1: Форма 095/у (Болезнь) -->
+        <div id="doc-type-medical" class="doc-sheet doc-medical hidden">
+          <div class="doc-med-header">
+            <div>
+              <strong>ГБУЗ «Детская городская поликлиника №42»</strong><br>
+              <small>г. Москва, ОГРН 1037739120481</small>
+            </div>
+            <div class="text-right">
+              Форма № 095/у<br>
+              <small>Утв. Минздравом РФ</small>
+            </div>
+          </div>
+
+          <div class="doc-med-title">
+            <h4>СПРАВКА № 412/26</h4>
+            <span>О временной нетрудоспособности учащегося</span>
+          </div>
+
+          <div class="doc-med-fields">
+            <p>Ф.И.О. учащегося: <strong id="doc-med-name" class="underline">—</strong></p>
+            <p>Класс / школа: <strong id="doc-med-class" class="underline">—</strong></p>
+            <p>Диагноз: <em>J06.9 Острая респираторная вирусная инфекция (ОРВИ)</em></p>
+            <p>Освобожден(а) от занятий: с <strong id="doc-med-dates">—</strong></p>
+            <p>Режим: амбулаторный. Контакт с инфекционными больными не установлен.</p>
+          </div>
+
+          <div class="doc-med-footer">
+            <div class="stamp-circle">
+              ДЛЯ СПРАВОК<br>ДГП №42
+            </div>
+            <div class="doc-med-sign">
+              <strong>Врач-педиатр: Соколова М.А.</strong><br>
+              <small class="text-muted">Подпись заверена ЭЦП поликлиники</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Бланк 2: Заявление от родителей -->
+        <div id="doc-type-parent" class="doc-sheet doc-parent hidden">
+          <div class="doc-parent-header">
+            Директору ГБОУ СОШ № 1502<br>
+            Воронину А.В.<br>
+            от законного представителя<br>
+            учащегося <span id="doc-parent-class">—</span> класса<br>
+            <strong id="doc-parent-name">—</strong>
+          </div>
+
+          <div class="doc-parent-title">
+            <h4>ЗАЯВЛЕНИЕ</h4>
+          </div>
+
+          <div class="doc-parent-body">
+            <p>Прошу Вас отпустить моего ребенка с учебных занятий на период: <strong id="doc-parent-dates">—</strong>.</p>
+            <p>Причина отсутствия: <em id="doc-parent-reason">—</em>.</p>
+            <p>Ответственность за жизнь и здоровье ребенка, а также за освоение образовательной программы беру на себя.</p>
+          </div>
+
+          <div class="doc-parent-footer">
+            <div>Дата подачи: 25.09.2026 г.</div>
+            <div>Подпись родителя: <span class="handwrite">/Кузнецова О.Н./</span></div>
+          </div>
+        </div>
+
+        <!-- Бланк 3: Вызов на олимпиаду (ВсОШ) -->
+        <div id="doc-type-olympiad" class="doc-sheet doc-olympiad hidden">
+          <div class="doc-oly-header">
+            <span>Министерство просвещения РФ • Региональный оргкомитет</span>
+            <h4>ВСЕРОССИЙСКАЯ ОЛИМПИАДА ШКОЛЬНИКОВ (ВсОШ)</h4>
+          </div>
+
+          <div class="doc-oly-title">
+            <strong>ОФИЦИАЛЬНЫЙ ВЫЗОВ НА ЭТАП СОРЕВНОВАНИЙ</strong>
+          </div>
+
+          <div class="doc-oly-body">
+            <p>Организационный комитет подтверждает вызов учащегося <strong id="doc-oly-name">—</strong> (<span id="doc-oly-class">—</span>) для очного участия в этапе соревнований.</p>
+            <div class="doc-oly-box">
+              <p>Дисциплина: <strong>Информатика и алгоритмическое программирование</strong></p>
+              <p>Сроки проведения: <strong id="doc-oly-dates">—</strong></p>
+              <p>Площадка: <strong>НИУ ВШЭ, Покровский бульвар 11</strong></p>
+            </div>
+            <small class="text-muted">Основание: распоряжение Департамента образования № 614/од.</small>
+          </div>
+
+          <div class="doc-oly-footer">
+            <div class="stamp-square">ОРГКОМИТЕТ ВсОШ</div>
+            <div class="text-right">
+              <strong>Председатель жюри: проф. Белов В.А.</strong><br>
+              <small class="text-emerald">Верифицировано в ФИС ОГЭ/ЕГЭ</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Бланк 4: Талон дежурного завуча -->
+        <div id="doc-type-duty" class="doc-sheet doc-duty hidden">
+          <div class="doc-duty-header">
+            <strong>ГБОУ «Школа № 1502»</strong><br>
+            <small>Служба дежурного администратора</small>
+          </div>
+
+          <div class="doc-duty-title">
+            <h4>ТАЛОН-РАЗРЕШЕНИЕ НА ВЫХОД</h4>
+            <small>№ 84 от 25.09.2026 г.</small>
+          </div>
+
+          <div class="doc-duty-body">
+            <p>Учащийся: <strong id="doc-duty-name">—</strong></p>
+            <p>Класс: <strong id="doc-duty-class">—</strong></p>
+            <p>Период: <strong id="doc-duty-dates">—</strong></p>
+            <p>Основание: <em id="doc-duty-reason">—</em></p>
+            <p class="text-emerald text-sm">Согласовано с родителями по телефону дежурным завучем.</p>
+          </div>
+
+          <div class="doc-duty-footer">
+            <div>Дежурный завуч: <strong>Николаева С.В.</strong></div>
+            <div class="duty-badge">ПОСТ ОХРАНЫ: ПРОПУСТИТЬ</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-modal="modal-doc">Закрыть</button>
+      </div>
+    </div>
   </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ОТКЛОНЕНИЕ СПРАВКИ -->
+  <div id="modal-reject" class="modal-backdrop hidden">
+    <div class="modal-box max-w-md">
+      <div class="modal-header">
+        <h3 class="modal-title">Причина отклонения справки</h3>
+        <button type="button" class="btn-close-modal" data-modal="modal-reject">✕</button>
+      </div>
+      <form id="form-reject-absence">
+        <div class="modal-body">
+          <p class="text-sm text-muted mb-3">Укажите причину для учащегося и его родителей:</p>
+          <div class="form-group">
+            <select id="reject-reason-select" class="form-control">
+              <option value="Некорректно указан период болезни">Некорректно указан период болезни</option>
+              <option value="Отсутствует официальная круглая печать учреждения">Отсутствует официальная круглая печать учреждения</option>
+              <option value="Неразборчивый скан или фотография низкого качества">Неразборчивый скан или фотография низкого качества</option>
+              <option value="Период в документе не совпадает с днями фактического пропуска">Период в документе не совпадает с днями фактического пропуска</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-modal="modal-reject">Отмена</button>
+          <button type="submit" class="btn btn-danger">Подтвердить отклонение</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ВНЕСТИ СПРАВКУ ВРУЧНУЮ (УЧИТЕЛЬ) -->
+  <div id="modal-add-absence" class="modal-backdrop hidden">
+    <div class="modal-box max-w-md">
+      <div class="modal-header">
+        <h3 class="modal-title">Внести запись об отсутствии</h3>
+        <button type="button" class="btn-close-modal" data-modal="modal-add-absence">✕</button>
+      </div>
+      <form id="form-manual-absence">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="manual-student-name">Ф.И.О. учащегося</label>
+            <input type="text" id="manual-student-name" required placeholder="Кузнецов Артём">
+          </div>
+
+          <div class="form-group">
+            <label for="manual-reason">Причина</label>
+            <select id="manual-reason">
+              <option value="Болезнь (справка от врача / медучреждения)">Болезнь (справка от врача)</option>
+              <option value="По семейным обстоятельствам (заявление родителей)">По семейным обстоятельствам</option>
+              <option value="Участие во Всероссийской олимпиаде школьников">Участие в олимпиаде ВсОШ</option>
+              <option value="Освобождение дежурного администратора / завуча">Освобождение дежурного завуча</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="manual-dates">Период (дд.мм - дд.мм)</label>
+            <input type="text" id="manual-dates" required placeholder="25.09 - 28.09">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-modal="modal-add-absence">Отмена</button>
+          <button type="submit" class="btn btn-primary">Сохранить в журнал</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ЖУРНАЛ КЛАССА (28 УЧЕНИКОВ) -->
+  <div id="modal-roster" class="modal-backdrop hidden">
+    <div class="modal-box max-w-3xl">
+      <div class="modal-header">
+        <div>
+          <h3 id="roster-modal-title" class="modal-title">Список учащихся класса (28 человек)</h3>
+          <p class="modal-subtitle">Оперативный учет посещаемости на текущий учебный день</p>
+        </div>
+        <button type="button" class="btn-close-modal" data-modal="modal-roster">✕</button>
+      </div>
+      <div class="modal-body p-0 max-h-96 overflow-y-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Ф.И.О. учащегося</th>
+              <th>Пол</th>
+              <th>Дата рожд.</th>
+              <th>Телефон родителя</th>
+              <th>Статус на уроке</th>
+            </tr>
+          </thead>
+          <tbody id="roster-tbody"></tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-modal="modal-roster">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ЗАПИСЬ В КРУЖОК (УЧЕНИК) -->
+  <div id="modal-club-apply" class="modal-backdrop hidden">
+    <div class="modal-box max-w-md">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Запись в кружок</h3>
+          <p id="club-apply-subtitle" class="modal-subtitle text-indigo font-bold">—</p>
+        </div>
+        <button type="button" class="btn-close-modal" data-modal="modal-club-apply">✕</button>
+      </div>
+      <form id="form-club-apply">
+        <input type="hidden" id="club-apply-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Учащийся</label>
+            <input type="text" id="club-apply-student" disabled class="bg-gray">
+          </div>
+
+          <div class="form-group">
+            <label for="club-apply-parent-name">Ф.И.О. родителя / представителя</label>
+            <input type="text" id="club-apply-parent-name" required placeholder="Кузнецова Ольга Николаевна">
+          </div>
+
+          <div class="form-group">
+            <label for="club-apply-parent-phone">Контактный телефон родителя</label>
+            <input type="tel" id="club-apply-parent-phone" required placeholder="+7 (999) 000-00-00">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-modal="modal-club-apply">Отмена</button>
+          <button type="submit" id="btn-submit-club-apply" class="btn btn-primary">Отправить заявление</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Контейнер для всплывающих уведомлений (Toast) -->
+  <div id="toast-container" class="toast-container"></div>
 
   <script src="app.js"></script>
 </body>

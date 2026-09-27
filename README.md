@@ -68,17 +68,13 @@
 spherum-assistant/
 ├── app/
 │   ├── main.py          # FastAPI сервер, эндпоинты авторизации, справок и кружков
-│   └── database.py      # SQLite база данных, хэширование, сидирование связок
+│   └── database.py      # SQLite база данных, хэширование паролей, сидирование связок
 ├── static/
-│   ├── auth.html        # Страница авторизации и регистрации
-│   ├── auth.css         # Стили окна авторизации
-│   ├── auth.js          # Логика авторизации и автозаполнения
-│   ├── loader.css       # 3D-анимация кристаллов загрузки
-│   ├── index.html       # Кабинет пользователя
-│   ├── style.css        # Стили кабинета
-│   └── app.js           # Взаимодействие с API
+│   ├── index.html       # Единый SPA-интерфейс (авторизация, кабинеты, модальные окна и бланки)
+│   ├── style.css        # Современные адаптивные стили без тяжелых библиотек
+│   └── app.js           # Логика клиента, взаимодействие с API, переключение ролей и документов
 ├── Dockerfile           # Инструкция сборки Docker-образа
-├── requirements.txt     # Python-зависимости
+├── requirements.txt     # Python-зависимости (FastAPI, Uvicorn, Pydantic)
 ├── .gitignore           # Исключения репозитория
 └── README.md            # Документация проекта
 ```
@@ -99,7 +95,7 @@ spherum-assistant/
    docker run -d -p 8000:8000 --name spherum-assistant spherum-assistant
    ```
 
-3. Откройте в браузере: **http://localhost:8000/auth.html**
+3. Откройте в браузере: **http://localhost:8000/**
 
 ---
 
@@ -126,4 +122,4 @@ spherum-assistant/
    python -m uvicorn app.main:app --reload --port 8000
    ```
 
-4. Откройте страницу авторизации: **http://localhost:8000/auth.html**
+4. Откройте в браузере: **http://localhost:8000/**

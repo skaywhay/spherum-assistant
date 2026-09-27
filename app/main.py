@@ -187,8 +187,8 @@ def create_task(data: TaskCreate):
 # --- Эндпоинты Справок и Отсутствий ---
 
 @app.get("/api/absences")
-def list_absences(class_name: Optional[str] = None):
-    return get_all_absences(class_name)
+def list_absences(class_name: Optional[str] = None, student_name: Optional[str] = None):
+    return get_all_absences(class_name, student_name)
 
 
 @app.post("/api/absences")
@@ -217,8 +217,8 @@ def list_clubs():
 
 
 @app.get("/api/clubs/applications")
-def list_applications(club_id: Optional[int] = None):
-    return get_club_applications(club_id)
+def list_applications(club_id: Optional[int] = None, student_name: Optional[str] = None):
+    return get_club_applications(club_id, student_name)
 
 
 @app.post("/api/clubs/apply")
@@ -238,7 +238,6 @@ def change_application_status(app_id: int, data: ClubApplicationStatusUpdate):
     return {"status": "ok"}
 
 
-# Раздача статики
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":

@@ -238,13 +238,19 @@ def add_task(subject: str, title: str, deadline: str, class_name: str = "9-А") 
 
 # --- Функции работы со справками ---
 
-def get_all_absences(class_name: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_all_absences(class_name: Optional[str] = None, student_name: Optional[str] = None) -> List[Dict[str, Any]]:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
+        query = "SELECT * FROM absences WHERE 1=1"
+        params = []
         if class_name:
-            rows = conn.execute("SELECT * FROM absences WHERE class_name = ? ORDER BY id DESC", (class_name,)).fetchall()
-        else:
-            rows = conn.execute("SELECT * FROM absences ORDER BY id DESC").fetchall()
+            query += " AND class_name = ?"
+            params.append(class_name)
+        if student_name:
+            query += " AND student_name = ?"
+            params.append(student_name)
+        query += " ORDER BY id DESC"
+        rows = conn.execute(query, params).fetchall()
         return [dict(row) for row in rows]
 
 
@@ -274,30 +280,33 @@ def update_absence_status(absence_id: int, status: str, rejection_reason: str = 
 def get_all_clubs() -> List[Dict[str, Any]]:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT * FROM clubs ORDER BY id ASC").fetchall()
+        rows = conn.execute(
+            """SELECT id, title, description, teacher_name, schedule, room,
+                      max_slots, taken_slots,
+                      taken_slots AS enrolled, max_slots AS capacity
+               FROM clubs ORDER BY id ASC"""
+        ).fetchall()
         return [dict(row) for row in rows]
 
 
-def get_club_applications(club_id: Optional[int] = None) -> List[Dict[str, Any]]:
+def get_club_applications(club_id: Optional[int] = None, student_name: Optional[str] = None) -> List[Dict[str, Any]]:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
+        query = """
+            SELECT ca.*, c.title as club_title, c.schedule as club_schedule, c.room as club_room 
+            FROM club_applications ca
+            JOIN clubs c ON ca.club_id = c.id
+            WHERE 1=1
+        """
+        params = []
         if club_id:
-            query = """
-                SELECT ca.*, c.title as club_title 
-                FROM club_applications ca
-                JOIN clubs c ON ca.club_id = c.id
-                WHERE ca.club_id = ?
-                ORDER BY ca.id DESC
-            """
-            rows = conn.execute(query, (club_id,)).fetchall()
-        else:
-            query = """
-                SELECT ca.*, c.title as club_title 
-                FROM club_applications ca
-                JOIN clubs c ON ca.club_id = c.id
-                ORDER BY ca.id DESC
-            """
-            rows = conn.execute(query).fetchall()
+            query += " AND ca.club_id = ?"
+            params.append(club_id)
+        if student_name:
+            query += " AND ca.student_name = ?"
+            params.append(student_name)
+        query += " ORDER BY ca.id DESC"
+        rows = conn.execute(query, params).fetchall()
         return [dict(row) for row in rows]
 
 
