@@ -57,8 +57,8 @@
 ## 🛠 Стек технологий
 
 - **Backend:** Python 3.11 / 3.14, FastAPI, SQLite, Pydantic
-- **Frontend:** HTML5, CSS3, Vanilla JavaScript
-- **DevOps:** Docker, Dockerfile
+- **Frontend:** React, JSX, CSS3 (автономно без Node.js и npm, запуск из коробки)
+- **DevOps:** Docker, Dockerfile, скрипты быстрого запуска (run.bat, run.py)
 
 ---
 
@@ -70,9 +70,12 @@ spherum-assistant/
 │   ├── main.py          # FastAPI сервер, эндпоинты авторизации, справок и кружков
 │   └── database.py      # SQLite база данных, хэширование паролей, сидирование связок
 ├── static/
-│   ├── index.html       # Единый SPA-интерфейс (авторизация, кабинеты, модальные окна и бланки)
-│   ├── style.css        # Современные адаптивные стили без тяжелых библиотек
-│   └── app.js           # Логика клиента, взаимодействие с API, переключение ролей и документов
+│   ├── index.html       # Контейнер React-приложения
+│   ├── style.css        # Современные адаптивные стили
+│   ├── app.jsx          # React-приложение (компоненты, хуки, модальные окна, документооборот)
+│   └── vendor/          # Автономные библиотеки React, ReactDOM и Babel (работает без интернета)
+├── run.bat              # Запуск в 1 клик для Windows
+├── run.py               # Кроссплатформенный скрипт запуска через Python
 ├── Dockerfile           # Инструкция сборки Docker-образа
 ├── requirements.txt     # Python-зависимости (FastAPI, Uvicorn, Pydantic)
 ├── .gitignore           # Исключения репозитория
