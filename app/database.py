@@ -152,7 +152,7 @@ def create_demo_clubs(conn: sqlite3.Connection):
     count = cursor.fetchone()[0]
     if count == 0:
         demo_clubs = [
-            ("Робототехника и БПЛА", "Сборка, схемотехника и пилотирование квадрокоптеров", "Иванов П.С.", "Вт, Чт 15:30", "Каб. 204", 15, 8),
+            ("Робототехника и БПЛА", "Сборка, схемотехника и пилотирование квадрокоптеров", "Васильев М.С.", "Вт, Чт 15:30", "Каб. 204", 15, 8),
             ("Олимпиадное программирование", "Алгоритмы, Python и подготовка к ВсОШ", "Смирнова Е.В.", "Пн, Ср 16:00", "Каб. 312", 12, 11),
             ("Шахматный клуб «Гамбит»", "Тактика, стратегия и участие в школьных турнирах", "Ковалев А.М.", "Пт 15:00", "Библиотека", 20, 14),
             ("Школьный медиацентр", "Журналистика, видеомонтаж и ведение канала Сферум", "Попова Д.А.", "Ср 15:00", "Каб. 108", 10, 6)
@@ -327,3 +327,113 @@ def update_club_application_status(app_id: int, status: str):
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("UPDATE club_applications SET status = ? WHERE id = ?", (status, app_id))
         conn.commit()
+
+
+def add_club(title: str, description: str, teacher_name: str, schedule: str, room: str, max_slots: int = 15) -> Dict[str, Any]:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute(
+            """INSERT INTO clubs (title, description, teacher_name, schedule, room, max_slots, taken_slots)
+               VALUES (?, ?, ?, ?, ?, ?, 0)""",
+            (title, description, teacher_name, schedule, room, max_slots)
+        )
+        conn.commit()
+        return {"id": cursor.lastrowid, "title": title}
+
+
+def delete_club_application(app_id: int) -> bool:
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute("SELECT club_id, status FROM club_applications WHERE id = ?", (app_id,)).fetchone()
+        if not row:
+            return False
+        club_id, status = row
+        conn.execute("DELETE FROM club_applications WHERE id = ?", (app_id,))
+        conn.execute("UPDATE clubs SET taken_slots = MAX(0, taken_slots - 1) WHERE id = ?", (club_id,))
+        conn.commit()
+        return True
+
+
+def reset_database():
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS club_applications")
+        cursor.execute("DROP TABLE IF EXISTS clubs")
+        cursor.execute("DROP TABLE IF EXISTS absences")
+        cursor.execute("DROP TABLE IF EXISTS tasks")
+        cursor.execute("DROP TABLE IF EXISTS users")
+        conn.commit()
+    init_db()
+
+
+STUDENT_ROSTER_9A = [
+    "Кузнецов Артём", "Алексеева Дарья", "Борисов Иван", "Васильева Полина",
+    "Григорьев Максим", "Дмитриева Анна", "Егоров Кирилл", "Жукова Екатерина",
+    "Зайцев Роман", "Иванова Софья", "Ковалёв Денис", "Лебедева Мария",
+    "Макаров Михаил", "Никитина Алиса", "Орлов Даниил", "Павлова Виктория",
+    "Романов Владислав", "Семенова Ксения", "Тарасов Арсений", "Устинова Вероника",
+    "Федоров Егор", "Харитонова Анастасия", "Цветков Богдан", "Чернова Елизавета",
+    "Шапошников Глеб", "Щербакова Варвара", "Юдин Сергей", "Яковлева Милана"
+]
+
+ABSENCE_REASONS = [
+    ("ОРВИ, температура 38.4°C (справка поликлиники №42)", "26.09 - 29.09"),
+    ("Острый ринофарингит, амбулаторный режим (форма 095/у)", "27.09 - 01.10"),
+    ("По семейным обстоятельствам (заявление родителей)", "26.09 - 26.09"),
+    ("Участие во Всероссийской олимпиаде по математике (ВсОШ)", "28.09 - 29.09"),
+    ("Освобождение дежурного администратора (талон №89)", "26.09 - 26.09"),
+    ("Приём у врача-офтальмолога в ДГП №42", "27.09 - 27.09"),
+    ("Обострение аллергического ринита (справка врача)", "26.09 - 28.09"),
+    ("Участие в региональном шахматном турнире «Белая ладья»", "29.09 - 30.09"),
+]
+
+
+def simulate_random_absence(class_name: str = "9-А") -> Dict[str, Any]:
+    import random
+    student = random.choice(STUDENT_ROSTER_9A)
+    reason, dates = random.choice(ABSENCE_REASONS)
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute(
+            """INSERT INTO absences (student_name, class_name, reason, dates, has_certificate, status)
+               VALUES (?, ?, ?, ?, 1, 'pending')""",
+            (student, class_name, reason, dates)
+        )
+        conn.commit()
+        return {
+            "id": cursor.lastrowid,
+            "student_name": student,
+            "class_name": class_name,
+            "reason": reason,
+            "dates": dates,
+            "status": "pending"
+        }
+
+
+def simulate_random_club_application() -> Optional[Dict[str, Any]]:
+    import random
+    student = random.choice(STUDENT_ROSTER_9A)
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        clubs = conn.execute("SELECT id, title FROM clubs").fetchall()
+        if not clubs:
+            return None
+        club = random.choice(clubs)
+        existing = conn.execute(
+            "SELECT id FROM club_applications WHERE club_id = ? AND student_name = ?",
+            (club["id"], student)
+        ).fetchone()
+        if existing:
+            return None
+        cursor = conn.execute(
+            """INSERT INTO club_applications 
+               (club_id, student_name, class_name, parent_name, parent_phone, status)
+               VALUES (?, ?, '9-А', 'Родитель ' || ?, '+7 (999) ' || (100 + abs(random() % 900)) || '-' || (10 + abs(random() % 90)) || '-' || (10 + abs(random() % 90)), 'pending')""",
+            (club["id"], student, student.split()[0])
+        )
+        conn.execute("UPDATE clubs SET taken_slots = taken_slots + 1 WHERE id = ?", (club["id"],))
+        conn.commit()
+        return {
+            "id": cursor.lastrowid,
+            "student_name": student,
+            "club_title": club["title"],
+            "club_id": club["id"],
+            "status": "pending"
+        }

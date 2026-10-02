@@ -6,6 +6,7 @@ import {
   getClubs,
   getClubApplications,
   updateClubApplicationStatus,
+  simulateAbsence,
 } from '../api';
 import StatusBadge from '../components/StatusBadge';
 import DocumentModal from '../components/DocumentModal';
@@ -21,12 +22,26 @@ import {
   Plus,
   RefreshCw,
   FileText,
-  UserCheck,
   Building,
+  GraduationCap,
+  Zap,
+  Check,
+  X as XIcon,
 } from 'lucide-react';
 
-export default function TeacherDashboard({ user, showToast }) {
+const CLASS_9A_ROSTER = [
+  'Кузнецов Артём', 'Алексеева Дарья', 'Борисов Иван', 'Васильева Полина',
+  'Григорьев Максим', 'Дмитриева Анна', 'Егоров Кирилл', 'Жукова Екатерина',
+  'Зайцев Роман', 'Иванова Софья', 'Ковалёв Денис', 'Лебедева Мария',
+  'Макаров Михаил', 'Никитина Алиса', 'Орлов Даниил', 'Павлова Виктория',
+  'Романов Владислав', 'Семенова Ксения', 'Тарасов Арсений', 'Устинова Вероника',
+  'Федоров Егор', 'Харитонова Анастасия', 'Цветков Богдан', 'Чернова Елизавета',
+  'Шапошников Глеб', 'Щербакова Варвара', 'Юдин Сергей', 'Яковлева Милана'
+];
+
+export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
   const [activeTab, setActiveTab] = useState('absences');
+  const [clubSubTab, setClubSubTab] = useState('class_overview'); // 'class_overview', 'my_club', 'catalog'
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -38,6 +53,7 @@ export default function TeacherDashboard({ user, showToast }) {
   const [rejectingId, setRejectingId] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRosterOpen, setIsRosterOpen] = useState(false);
+  const [simulating, setSimulating] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -49,7 +65,7 @@ export default function TeacherDashboard({ user, showToast }) {
 
       setAbsences(absData);
       setClubs(clubsData);
-      setApplications(appsData.filter((a) => !a.class_name || a.class_name === user.class_name));
+      setApplications(appsData);
     } catch {
       showToast('Ошибка загрузки данных журнала', 'error');
     }
@@ -57,7 +73,7 @@ export default function TeacherDashboard({ user, showToast }) {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, refreshTrigger]);
 
   const handleApprove = async (id) => {
     try {
@@ -108,9 +124,40 @@ export default function TeacherDashboard({ user, showToast }) {
     }
   };
 
+  const handleQuickSimulate = async () => {
+    setSimulating(true);
+    try {
+      const res = await simulateAbsence(user.class_name);
+      showToast(`⚡ Новое обращение: ${res.student_name} (${res.reason})`, 'info');
+      await loadData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   const pendingCount = absences.filter((a) => a.status === 'pending').length;
   const approvedCount = absences.filter((a) => a.status === 'approved').length;
-  const pendingClubsCount = applications.filter((a) => a.status === 'pending').length;
+
+  // The club taught by current teacher (e.g. Smirnova -> Programming, Vasiliev -> Robotics)
+  const myClub = clubs.find((c) =>
+    user.full_name.includes('Смирнова') ? c.title.includes('программирование') :
+    user.full_name.includes('Васильев') ? c.title.includes('Робототехника') :
+    c.teacher_name.includes(user.full_name.split(' ')[0])
+  ) || clubs[0];
+
+  // Applications for teacher's own club
+  const myClubApps = applications.filter((a) => myClub && a.club_id === myClub.id);
+  const myClubPendingCount = myClubApps.filter((a) => a.status === 'pending').length;
+
+  // Class 9-A extracurricular coverage calculation (Отчёт по внеурочной занятости класса)
+  const classAllApps = applications.filter((a) => a.class_name === user.class_name);
+  const enrolledStudents = new Set(classAllApps.filter((a) => a.status === 'approved').map((a) => a.student_name));
+  const pendingStudents = new Set(classAllApps.filter((a) => a.status === 'pending').map((a) => a.student_name));
+  const coveragePercent = CLASS_9A_ROSTER.length > 0
+    ? Math.round((enrolledStudents.size / CLASS_9A_ROSTER.length) * 100)
+    : 0;
 
   const filteredAbsences = useMemo(() => {
     return absences.filter((item) => {
@@ -135,11 +182,11 @@ export default function TeacherDashboard({ user, showToast }) {
           className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-amber-400 hover:shadow-md transition-all group shadow-xs"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
-            <span>На проверке</span>
+            <span>Справок на проверке</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-3xl font-extrabold text-amber-600 mt-2">{pendingCount}</div>
-          <div className="text-xs text-slate-500 mt-1">Ожидают подтверждения</div>
+          <div className="text-xs text-slate-500 mt-1">Ожидают решения классрука</div>
         </button>
 
         <button
@@ -160,15 +207,23 @@ export default function TeacherDashboard({ user, showToast }) {
 
         <button
           type="button"
-          onClick={() => setActiveTab('clubs')}
+          onClick={() => {
+            setActiveTab('clubs');
+            setClubSubTab('class_overview');
+          }}
           className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-md transition-all group shadow-xs"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
-            <span>Заявки в кружки</span>
+            <span>Охват внеурочкой</span>
             <Sparkles className="w-4 h-4 text-indigo-500" />
           </div>
-          <div className="text-3xl font-extrabold text-indigo-600 mt-2">{pendingClubsCount}</div>
-          <div className="text-xs text-slate-500 mt-1">Внеурочная деятельность</div>
+          <div className="text-3xl font-extrabold text-indigo-600 mt-2">{coveragePercent}%</div>
+          <div className="text-xs text-slate-500 mt-1">
+            {enrolledStudents.size} из 28 зачислено
+            {pendingStudents.size > 0 && (
+              <span className="text-amber-600 font-medium"> (+{pendingStudents.size} на проверке)</span>
+            )}
+          </div>
         </button>
 
         <button
@@ -196,7 +251,7 @@ export default function TeacherDashboard({ user, showToast }) {
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          Справки и заявления
+          Справки и заявления ({absences.length})
         </button>
         <button
           type="button"
@@ -207,10 +262,10 @@ export default function TeacherDashboard({ user, showToast }) {
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <span>Кружки и секции</span>
-          {pendingClubsCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
-              {pendingClubsCount}
+          <span>Внеурочная деятельность и кружки</span>
+          {myClubPendingCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+              +{myClubPendingCount} заявки
             </span>
           )}
         </button>
@@ -244,7 +299,7 @@ export default function TeacherDashboard({ user, showToast }) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              <div className="relative flex-1 sm:w-64">
+              <div className="relative flex-1 sm:w-56">
                 <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 <input
                   type="text"
@@ -254,6 +309,17 @@ export default function TeacherDashboard({ user, showToast }) {
                   className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
+
+              <button
+                type="button"
+                onClick={handleQuickSimulate}
+                disabled={simulating}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-colors shadow-xs"
+                title="Смоделировать входящую справку от случайного ученика"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-600" />
+                <span>{simulating ? 'Генерация...' : '⚡ Симуляция справки'}</span>
+              </button>
 
               <button
                 type="button"
@@ -371,129 +437,301 @@ export default function TeacherDashboard({ user, showToast }) {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Applications list */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h3 className="text-base font-bold text-slate-900">
-                Заявления учеников в секции и кружки
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Проверьте заявления от родителей учащихся класса {user.class_name}
-              </p>
-            </div>
+          {/* Sub-tabs for Clubs System (Option B) */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setClubSubTab('class_overview')}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+                clubSubTab === 'class_overview'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              📊 Занятость класса {user.class_name} (Отчёт завучу)
+            </button>
+            <button
+              type="button"
+              onClick={() => setClubSubTab('my_club')}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all inline-flex items-center gap-1.5 ${
+                clubSubTab === 'my_club'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <span>🎓 Моя секция: {myClub?.title || 'Руководство'}</span>
+              {myClubPendingCount > 0 && (
+                <span className="bg-amber-400 text-slate-900 text-[10px] font-bold px-1.5 rounded-full">
+                  {myClubPendingCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setClubSubTab('catalog')}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+                clubSubTab === 'catalog'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              🏫 Каталог всех секций школы
+            </button>
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Ученик</th>
-                    <th className="py-3 px-4">Кружок</th>
-                    <th className="py-3 px-4">Родитель</th>
-                    <th className="py-3 px-4">Телефон</th>
-                    <th className="py-3 px-4">Статус</th>
-                    <th className="py-3 px-4 text-right">Решение</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {applications.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
-                        Заявлений в кружки пока нет
-                      </td>
-                    </tr>
-                  ) : (
-                    applications.map((app) => {
-                      const club = clubs.find((c) => c.id === app.club_id);
-                      return (
-                        <tr key={app.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">
-                            {app.student_name}
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-indigo-700 text-xs">
-                            {club?.title || `Кружок №${app.club_id}`}
-                          </td>
-                          <td className="py-3 px-4 text-xs text-slate-700">{app.parent_name}</td>
-                          <td className="py-3 px-4 font-mono text-xs text-slate-600 whitespace-nowrap">
-                            {app.parent_phone}
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <StatusBadge status={app.status} />
-                          </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            {app.status === 'pending' ? (
-                              <div className="inline-flex gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleAppStatus(app.id, 'approved')}
-                                  className="px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+          {/* SubTab 1: Class Extracurricular Coverage Report */}
+          {clubSubTab === 'class_overview' && (
+            <div className="space-y-4">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Ведомость внеурочной занятости класса {user.class_name}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Официальная школьная отчётность классного руководителя по охвату дополнительным образованием
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-xs text-slate-500 block">Зачислено {enrolledStudents.size} из 28:</span>
+                    <strong className="text-lg font-bold text-emerald-600">{coveragePercent}% класса</strong>
+                  </div>
+                  <div className="w-24 bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-2.5 rounded-full"
+                      style={{ width: `${Math.min(coveragePercent, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="py-3 px-4 w-12 text-center">№</th>
+                        <th className="py-3 px-4">Ученик 9-А</th>
+                        <th className="py-3 px-4">Посещаемые кружки и секции</th>
+                        <th className="py-3 px-4">Статус охвата</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {CLASS_9A_ROSTER.map((name, idx) => {
+                        const studentApps = applications.filter(
+                          (a) => a.student_name.trim().toLowerCase() === name.trim().toLowerCase()
+                        );
+                        const approvedClubs = studentApps
+                          .filter((a) => a.status === 'approved')
+                          .map((a) => {
+                            const c = clubs.find((item) => item.id === a.club_id);
+                            return c?.title || `Кружок №${a.club_id}`;
+                          });
+
+                        const pendingClubs = studentApps
+                          .filter((a) => a.status === 'pending')
+                          .map((a) => {
+                            const c = clubs.find((item) => item.id === a.club_id);
+                            return c?.title || `Кружок №${a.club_id}`;
+                          });
+
+                        const hasEnrollment = approvedClubs.length > 0;
+
+                        return (
+                          <tr key={name} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-2.5 px-4 text-center font-mono text-xs text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2.5 px-4 font-semibold text-slate-900 text-xs">
+                              {name}
+                            </td>
+                            <td className="py-2.5 px-4 text-xs">
+                              {approvedClubs.map((t) => (
+                                <span
+                                  key={t}
+                                  className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium mr-1.5 mb-1"
                                 >
-                                  Принять
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAppStatus(app.id, 'rejected')}
-                                  className="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-300 hover:bg-rose-100 transition-colors"
+                                  ✓ {t}
+                                </span>
+                              ))}
+                              {pendingClubs.map((t) => (
+                                <span
+                                  key={t}
+                                  className="inline-block px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-medium mr-1.5 mb-1"
                                 >
-                                  Отклонить
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-xs font-medium text-slate-400">Решено</span>
-                            )}
+                                  ⏳ {t} (на проверке)
+                                </span>
+                              ))}
+                              {approvedClubs.length === 0 && pendingClubs.length === 0 && (
+                                <span className="text-slate-400 text-[11px] italic">
+                                  Нет активных записей
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              {hasEnrollment ? (
+                                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                  Охвачен
+                                </span>
+                              ) : (
+                                <span className="text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                  Не записан
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SubTab 2: My Club Applications & Enrollment */}
+          {clubSubTab === 'my_club' && (
+            <div className="space-y-4">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider block">
+                      Педагог дополнительного образования: {user.full_name}
+                    </span>
+                    <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                      Секция: «{myClub?.title}»
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Расписание: <strong>{myClub?.schedule}</strong> • Аудитория: <strong>{myClub?.room}</strong>
+                    </p>
+                  </div>
+                  <div className="px-4 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 font-semibold text-right">
+                    Занято мест: <span className="text-base font-bold text-indigo-600">{myClub?.taken_slots ?? myClub?.enrolled ?? 0}</span> из {myClub?.max_slots ?? myClub?.capacity ?? 15}
+                  </div>
+                </div>
+              </div>
+
+              {/* Applications for this club */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-200">
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Поступившие заявления на зачисление в секцию
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Решение о зачислении принимает руководитель объединения
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="py-3 px-4">Ученик</th>
+                        <th className="py-3 px-4">Класс</th>
+                        <th className="py-3 px-4">Ф.И.О. родителя</th>
+                        <th className="py-3 px-4">Телефон для связи</th>
+                        <th className="py-3 px-4">Статус</th>
+                        <th className="py-3 px-4 text-right">Решение педагога</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {myClubApps.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                            Заявлений в данную секцию пока нет
                           </td>
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                      ) : (
+                        myClubApps.map((app) => (
+                          <tr key={app.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-3 px-4 font-semibold text-slate-900 text-xs">
+                              {app.student_name}
+                            </td>
+                            <td className="py-3 px-4 font-mono text-xs text-slate-600">
+                              {app.class_name}
+                            </td>
+                            <td className="py-3 px-4 text-xs text-slate-700">{app.parent_name}</td>
+                            <td className="py-3 px-4 font-mono text-xs text-slate-600">
+                              {app.parent_phone}
+                            </td>
+                            <td className="py-3 px-4">
+                              <StatusBadge status={app.status} />
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              {app.status === 'pending' ? (
+                                <div className="inline-flex gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAppStatus(app.id, 'approved')}
+                                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 transition-colors inline-flex items-center gap-1"
+                                  >
+                                    <Check className="w-3.5 h-3.5" /> Зачислить
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAppStatus(app.id, 'rejected')}
+                                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-300 hover:bg-rose-100 transition-colors inline-flex items-center gap-1"
+                                  >
+                                    <XIcon className="w-3.5 h-3.5" /> Отклонить
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-xs font-medium text-slate-400">Решение принято</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Clubs Catalog */}
-          <div>
-            <h3 className="text-base font-bold text-slate-900 mb-4">
-              Школьные кружки и секции
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clubs.map((c) => {
-                const enrolled = c.taken_slots ?? c.enrolled ?? 0;
-                const capacity = c.max_slots ?? c.capacity ?? 15;
-                return (
-                  <div
-                    key={c.id}
-                    className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between"
-                  >
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">{c.title}</h4>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{c.description}</p>
-                    </div>
+          {/* SubTab 3: Full School Clubs Catalog */}
+          {clubSubTab === 'catalog' && (
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {clubs.map((c) => {
+                  const enrolled = c.taken_slots ?? c.enrolled ?? 0;
+                  const capacity = c.max_slots ?? c.capacity ?? 15;
+                  return (
+                    <div
+                      key={c.id}
+                      className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between"
+                    >
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">{c.title}</h4>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{c.description}</p>
+                      </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Преподаватель:</span>
-                        <strong className="text-slate-700">{c.teacher_name}</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Расписание:</span>
-                        <span className="text-slate-700">{c.schedule}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Кабинет:</span>
-                        <span className="text-slate-700">{c.room}</span>
-                      </div>
-                      <div className="flex justify-between pt-1">
-                        <span className="text-slate-400">Мест занято:</span>
-                        <strong className="text-indigo-600 font-semibold">
-                          {enrolled} из {capacity}
-                        </strong>
+                      <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Преподаватель:</span>
+                          <strong className="text-slate-700">{c.teacher_name}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Расписание:</span>
+                          <span className="text-slate-700">{c.schedule}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Кабинет:</span>
+                          <span className="text-slate-700">{c.room}</span>
+                        </div>
+                        <div className="flex justify-between pt-1">
+                          <span className="text-slate-400">Мест занято:</span>
+                          <strong className="text-indigo-600 font-semibold">
+                            {enrolled} из {capacity}
+                          </strong>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 

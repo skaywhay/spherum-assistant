@@ -8,7 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+# dist is tracked to allow standalone execution without Node.js
+# dist
 dist-ssr
 *.local
 

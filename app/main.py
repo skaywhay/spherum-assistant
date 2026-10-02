@@ -19,9 +19,14 @@ from app.database import (
     add_absence,
     update_absence_status,
     get_all_clubs,
+    add_club,
     get_club_applications,
     add_club_application,
-    update_club_application_status
+    delete_club_application,
+    update_club_application_status,
+    reset_database,
+    simulate_random_absence,
+    simulate_random_club_application
 )
 
 app = FastAPI(title="Сферум.Ассистент")
@@ -113,6 +118,16 @@ class ClubApplicationCreate(BaseModel):
 
 class ClubApplicationStatusUpdate(BaseModel):
     status: str  # 'approved' или 'rejected'
+
+
+class ClubCreate(BaseModel):
+    title: str
+    description: str
+    teacher_name: str
+    schedule: str
+    room: str
+    max_slots: int = 15
+
 
 
 # --- Эндпоинты Авторизации ---
@@ -238,13 +253,53 @@ def change_application_status(app_id: int, data: ClubApplicationStatusUpdate):
     return {"status": "ok"}
 
 
+@app.post("/api/clubs")
+def create_club(data: ClubCreate):
+    return add_club(
+        title=data.title,
+        description=data.description,
+        teacher_name=data.teacher_name,
+        schedule=data.schedule,
+        room=data.room,
+        max_slots=data.max_slots
+    )
+
+
+@app.delete("/api/clubs/applications/{app_id}")
+def cancel_application(app_id: int):
+    ok = delete_club_application(app_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Заявление не найдено")
+    return {"status": "ok"}
+
+
+# --- Эндпоинты Демо-симуляции и Панели Жюри ---
+
+@app.post("/api/demo/simulate-absence")
+def simulate_absence_endpoint(class_name: Optional[str] = "9-А"):
+    return simulate_random_absence(class_name or "9-А")
+
+
+@app.post("/api/demo/simulate-club-application")
+def simulate_club_application_endpoint():
+    app_data = simulate_random_club_application()
+    if not app_data:
+        return {"status": "skipped", "message": "Все ученики уже имеют заявки или нет доступных кружков"}
+    return {"status": "ok", "application": app_data}
+
+
+@app.post("/api/demo/reset-db")
+def reset_db_endpoint():
+    reset_database()
+    return {"status": "ok", "message": "База данных успешно сброшена к исходным демо-данным"}
+
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
 
 if os.path.exists(FRONTEND_DIST):
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
-else:
-    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
 
 
 if __name__ == "__main__":

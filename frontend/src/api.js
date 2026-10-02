@@ -58,6 +58,16 @@ export async function getClubs() {
   return res.json();
 }
 
+export async function createClub(payload) {
+  const res = await fetch(`${API_BASE}/clubs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Не удалось создать кружок');
+  return res.json();
+}
+
 export async function getClubApplications(clubId, studentName) {
   const params = new URLSearchParams();
   if (clubId) params.append('club_id', clubId);
@@ -85,5 +95,37 @@ export async function updateClubApplicationStatus(id, status) {
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error('Не удалось обновить статус заявления');
+  return res.json();
+}
+
+export async function cancelClubApplication(id) {
+  const res = await fetch(`${API_BASE}/clubs/applications/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Не удалось отозвать заявление');
+  return res.json();
+}
+
+export async function simulateAbsence(className = '9-А') {
+  const res = await fetch(`${API_BASE}/demo/simulate-absence?class_name=${encodeURIComponent(className)}`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Ошибка симуляции справки');
+  return res.json();
+}
+
+export async function simulateClubApplication() {
+  const res = await fetch(`${API_BASE}/demo/simulate-club-application`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Ошибка симуляции заявки');
+  return res.json();
+}
+
+export async function resetDatabase() {
+  const res = await fetch(`${API_BASE}/demo/reset-db`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Ошибка сброса данных');
   return res.json();
 }
