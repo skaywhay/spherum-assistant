@@ -238,7 +238,14 @@ def change_application_status(app_id: int, data: ClubApplicationStatusUpdate):
     return {"status": "ok"}
 
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
+
+if os.path.exists(FRONTEND_DIST):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+else:
+    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
 
 if __name__ == "__main__":
     import uvicorn
