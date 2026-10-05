@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, X, FileText, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
+import type { Absence, ClubApplication, User } from '../types';
 
-export default function NotificationPopup({ user, absences = [], applications = [], onAction, onDismiss }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [hasDismissed, setHasDismissed] = useState(false);
+interface NotificationPopupProps {
+  user: User | null;
+  absences?: Absence[];
+  applications?: ClubApplication[];
+  onAction?: (tab: string) => void;
+  onDismiss?: () => void;
+}
+
+export default function NotificationPopup({
+  user,
+  absences = [],
+  applications = [],
+  onAction,
+  onDismiss,
+}: NotificationPopupProps): React.JSX.Element | null {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [hasDismissed, setHasDismissed] = useState<boolean>(false);
 
   const isTeacher = user?.role === 'teacher';
 
-  // Calculate unread/pending items for this user
   const teacherPendingAbsences = isTeacher
     ? absences.filter((a) => a.status === 'pending')
     : [];
@@ -31,7 +45,6 @@ export default function NotificationPopup({ user, absences = [], applications = 
   const totalTeacherItems = teacherPendingAbsences.length + teacherPendingApps.length;
   const totalStudentItems = studentApprovedAbsences.length + studentApprovedClubs.length;
 
-  // Show automatically on initial login/entry if there are pending/new items
   useEffect(() => {
     if (hasDismissed) return;
 
@@ -46,13 +59,13 @@ export default function NotificationPopup({ user, absences = [], applications = 
     }
   }, [user?.id, isTeacher, totalTeacherItems, totalStudentItems, studentPendingAbsences.length, hasDismissed]);
 
-  const handleDismiss = () => {
+  const handleDismiss = (): void => {
     setIsOpen(false);
     setHasDismissed(true);
     if (onDismiss) onDismiss();
   };
 
-  const handleGo = (targetTab) => {
+  const handleGo = (targetTab: string): void => {
     handleDismiss();
     if (onAction) onAction(targetTab);
   };
@@ -60,9 +73,8 @@ export default function NotificationPopup({ user, absences = [], applications = 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-20 right-4 sm:right-6 z-50 max-w-md w-full animate-fade-in">
+    <div className="fixed top-18 sm:top-20 inset-x-3 sm:inset-x-auto sm:right-6 z-50 sm:max-w-md animate-fade-in">
       <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl rounded-2xl p-4 sm:p-5 text-slate-800 relative overflow-hidden">
-        {/* Accent top stripe */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-amber-500" />
 
         <div className="flex items-start justify-between gap-3">
@@ -91,7 +103,6 @@ export default function NotificationPopup({ user, absences = [], applications = 
           </button>
         </div>
 
-        {/* Content list */}
         <div className="mt-3.5 space-y-2 text-xs">
           {isTeacher ? (
             <>
@@ -190,7 +201,6 @@ export default function NotificationPopup({ user, absences = [], applications = 
           )}
         </div>
 
-        {/* Footer actions */}
         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
           <button
             type="button"

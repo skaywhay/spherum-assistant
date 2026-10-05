@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { X, Users, CheckCircle2, Clock } from 'lucide-react';
+import type { Absence, StudentRosterItem } from '../types';
 
-const CLASS_9A_ROSTER = [
+const CLASS_9A_ROSTER: StudentRosterItem[] = [
   { id: 1, name: 'Кузнецов Артём', gender: 'М', birth: '14.03.2010', phone: '+7 (916) 123-45-01' },
   { id: 2, name: 'Алексеева Дарья', gender: 'Ж', birth: '22.05.2010', phone: '+7 (916) 123-45-02' },
   { id: 3, name: 'Борисов Иван', gender: 'М', birth: '09.11.2009', phone: '+7 (916) 123-45-03' },
@@ -32,9 +33,21 @@ const CLASS_9A_ROSTER = [
   { id: 28, name: 'Яковлева Милана', gender: 'Ж', birth: '08.09.2010', phone: '+7 (916) 123-45-28' },
 ];
 
-export default function RosterModal({ isOpen, onClose, absences = [], className = '9-А' }) {
+interface RosterModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  absences?: Absence[];
+  className?: string;
+}
+
+export default function RosterModal({
+  isOpen,
+  onClose,
+  absences = [],
+  className = '9-А',
+}: RosterModalProps): React.JSX.Element | null {
   useEffect(() => {
-    const handleKey = (e) => {
+    const handleKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose();
     };
     if (isOpen) window.addEventListener('keydown', handleKey);
@@ -45,18 +58,18 @@ export default function RosterModal({ isOpen, onClose, absences = [], className 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh]">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
           <div>
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-600" />
-              Список учащихся класса {className} (28 человек)
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 shrink-0" />
+              <span>Список класса {className} (28 чел.)</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Оперативный мониторинг присутствия на текущий учебный день
+            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+              Оперативный мониторинг присутствия на уроке
             </p>
           </div>
           <button
@@ -72,12 +85,12 @@ export default function RosterModal({ isOpen, onClose, absences = [], className 
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="py-3 px-4 w-12 text-center">№</th>
-                <th className="py-3 px-4">Ф.И.О. учащегося</th>
-                <th className="py-3 px-4 w-16">Пол</th>
-                <th className="py-3 px-4">Дата рожд.</th>
-                <th className="py-3 px-4">Телефон родителя</th>
-                <th className="py-3 px-4">Статус на уроке</th>
+                <th className="py-2.5 sm:py-3 px-2 sm:px-4 w-10 sm:w-12 text-center">№</th>
+                <th className="py-2.5 sm:py-3 px-3 sm:px-4">Ф.И.О. учащегося</th>
+                <th className="py-2.5 sm:py-3 px-3 sm:px-4 w-14 hidden sm:table-cell">Пол</th>
+                <th className="py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Дата рожд.</th>
+                <th className="py-2.5 sm:py-3 px-3 sm:px-4 hidden md:table-cell">Телефон родителя</th>
+                <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-right sm:text-left">Статус</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -87,22 +100,22 @@ export default function RosterModal({ isOpen, onClose, absences = [], className 
                 );
 
                 let badge = (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-medium">
-                    <CheckCircle2 className="w-3 h-3" /> Присутствует
+                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-medium">
+                    <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">Присутствует</span><span className="sm:hidden">В классе</span>
                   </span>
                 );
 
                 if (match) {
                   if (match.status === 'approved') {
                     badge = (
-                      <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full text-xs font-medium" title={match.reason}>
-                        <CheckCircle2 className="w-3 h-3" /> Справка принята
+                      <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-medium" title={match.reason}>
+                        <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">Справка принята</span><span className="sm:hidden">Справка</span>
                       </span>
                     );
                   } else if (match.status === 'pending') {
                     badge = (
-                      <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-xs font-medium" title={match.reason}>
-                        <Clock className="w-3 h-3" /> На проверке
+                      <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-medium" title={match.reason}>
+                        <Clock className="w-3 h-3" /> <span className="hidden sm:inline">На проверке</span><span className="sm:hidden">Проверка</span>
                       </span>
                     );
                   }
@@ -110,20 +123,23 @@ export default function RosterModal({ isOpen, onClose, absences = [], className 
 
                 return (
                   <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-2.5 px-4 text-center font-mono text-xs text-slate-400">
+                    <td className="py-2 sm:py-2.5 px-2 sm:px-4 text-center font-mono text-xs text-slate-400">
                       {student.id}
                     </td>
-                    <td className="py-2.5 px-4 font-semibold text-slate-900">
-                      {student.name}
+                    <td className="py-2 sm:py-2.5 px-3 sm:px-4 font-semibold text-slate-900 text-xs sm:text-sm">
+                      <div>{student.name}</div>
+                      <div className="text-[11px] text-slate-500 font-mono font-normal md:hidden mt-0.5">
+                        {student.phone}
+                      </div>
                     </td>
-                    <td className="py-2.5 px-4 text-slate-600 text-xs">{student.gender}</td>
-                    <td className="py-2.5 px-4 font-mono text-xs text-slate-500">
+                    <td className="py-2 sm:py-2.5 px-3 sm:px-4 text-slate-600 text-xs hidden sm:table-cell">{student.gender}</td>
+                    <td className="py-2 sm:py-2.5 px-3 sm:px-4 font-mono text-xs text-slate-500 hidden sm:table-cell">
                       {student.birth}
                     </td>
-                    <td className="py-2.5 px-4 font-mono text-xs text-slate-600">
+                    <td className="py-2 sm:py-2.5 px-3 sm:px-4 font-mono text-xs text-slate-600 hidden md:table-cell">
                       {student.phone}
                     </td>
-                    <td className="py-2.5 px-4">{badge}</td>
+                    <td className="py-2 sm:py-2.5 px-3 sm:px-4 text-right sm:text-left">{badge}</td>
                   </tr>
                 );
               })}

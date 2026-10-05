@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   getAbsences,
   createAbsence,
@@ -6,7 +6,6 @@ import {
   getClubs,
   getClubApplications,
   updateClubApplicationStatus,
-  simulateAbsence,
 } from '../api';
 import StatusBadge from '../components/StatusBadge';
 import DocumentModal from '../components/DocumentModal';
@@ -22,14 +21,12 @@ import {
   Plus,
   RefreshCw,
   FileText,
-  Building,
-  GraduationCap,
-  Zap,
   Check,
   X as XIcon,
 } from 'lucide-react';
+import type { Absence, AbsenceStatus, AddAbsencePayload, Club, ClubApplication, ClubApplicationStatus, ToastType, User } from '../types';
 
-const CLASS_9A_ROSTER = [
+const CLASS_9A_ROSTER: string[] = [
   'Кузнецов Артём', 'Алексеева Дарья', 'Борисов Иван', 'Васильева Полина',
   'Григорьев Максим', 'Дмитриева Анна', 'Егоров Кирилл', 'Жукова Екатерина',
   'Зайцев Роман', 'Иванова Софья', 'Ковалёв Денис', 'Лебедева Мария',
@@ -39,23 +36,40 @@ const CLASS_9A_ROSTER = [
   'Шапошников Глеб', 'Щербакова Варвара', 'Юдин Сергей', 'Яковлева Милана'
 ];
 
-export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
-  const [activeTab, setActiveTab] = useState('absences');
-  const [clubSubTab, setClubSubTab] = useState('class_overview'); // 'class_overview', 'my_club', 'catalog'
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
+interface TeacherDashboardProps {
+  user: User;
+  showToast: (msg: string, type?: ToastType) => void;
+  refreshTrigger?: number;
+}
 
-  const [absences, setAbsences] = useState([]);
-  const [clubs, setClubs] = useState([]);
-  const [applications, setApplications] = useState([]);
+type MainTab = 'absences' | 'clubs';
+type ClubSubTab = 'class_overview' | 'my_club' | 'catalog';
+type AbsenceFilter = 'all' | 'pending' | 'approved' | 'rejected';
 
-  const [selectedDoc, setSelectedDoc] = useState(null);
-  const [rejectingId, setRejectingId] = useState(null);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isRosterOpen, setIsRosterOpen] = useState(false);
-  const [simulating, setSimulating] = useState(false);
+export default function TeacherDashboard({
+  user,
+  showToast,
+  refreshTrigger,
+}: TeacherDashboardProps): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState<MainTab>('absences');
+  const [clubSubTab, setClubSubTab] = useState<ClubSubTab>('class_overview');
+  const [filter, setFilter] = useState<AbsenceFilter>('all');
+  const [search, setSearch] = useState<string>('');
 
-  const loadData = useCallback(async () => {
+  const [absences, setAbsences] = useState<Absence[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [applications, setApplications] = useState<ClubApplication[]>([]);
+
+  const [selectedDoc, setSelectedDoc] = useState<Absence | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [isAddOpen, setIsAddOpen] = useState<boolean>(false);
+  const [isRosterOpen, setIsRosterOpen] = useState<boolean>(false);
+
+  const isInitialRef = useRef<boolean>(true);
+  const knownAbsenceIdsRef = useRef<Set<number>>(new Set());
+  const knownAppIdsRef = useRef<Set<number>>(new Set());
+
+  const loadData = useCallback(async (silent = false): Promise<void> => {
     try {
       const [absData, clubsData, appsData] = await Promise.all([
         getAbsences(user.class_name),
@@ -63,29 +77,66 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
         getClubApplications(),
       ]);
 
+      if (!isInitialRef.current) {
+        if (absData) {
+          const newAbs = absData.filter(
+            (a) => a.status === 'pending' && !knownAbsenceIdsRef.current.has(a.id)
+          );
+          if (newAbs.length > 0) {
+            const first = newAbs[0];
+            showToast(`🔔 Новая справка: ${first.student_name} (${first.reason})`, 'info');
+          }
+        }
+
+        if (appsData) {
+          const newApps = appsData.filter(
+            (a) => a.status === 'pending' && !knownAppIdsRef.current.has(a.id)
+          );
+          if (newApps.length > 0) {
+            const first = newApps[0];
+            showToast(`📝 Новая заявка на кружок: ${first.student_name} (${first.club_title})`, 'info');
+          }
+        }
+      }
+
+      if (absData) {
+        knownAbsenceIdsRef.current = new Set(absData.map((a) => a.id));
+      }
+      if (appsData) {
+        knownAppIdsRef.current = new Set(appsData.map((a) => a.id));
+      }
+      isInitialRef.current = false;
+
       setAbsences(absData);
       setClubs(clubsData);
       setApplications(appsData);
     } catch {
-      showToast('Ошибка загрузки данных журнала', 'error');
+      if (!silent) {
+        showToast('Ошибка загрузки данных журнала', 'error');
+      }
     }
   }, [user.class_name, showToast]);
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 3000);
+    return () => clearInterval(interval);
   }, [loadData, refreshTrigger]);
 
-  const handleApprove = async (id) => {
+  const handleApprove = async (id: number): Promise<void> => {
     try {
       await updateAbsenceStatus(id, 'approved');
       showToast('Справка успешно принята', 'success');
       await loadData();
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка принятия справки';
+      showToast(errorMsg, 'error');
     }
   };
 
-  const handleReject = async (reason) => {
+  const handleReject = async (reason: string): Promise<void> => {
     if (!rejectingId) return;
     try {
       await updateAbsenceStatus(rejectingId, 'rejected', reason);
@@ -93,15 +144,16 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
       setRejectingId(null);
       await loadData();
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка отклонения справки';
+      showToast(errorMsg, 'error');
     }
   };
 
-  const handleAddAbsence = async (payload) => {
+  const handleAddAbsence = async (payload: AddAbsencePayload): Promise<void> => {
     try {
       await createAbsence({
         student_name: payload.student_name,
-        class_name: user.class_name,
+        class_name: user.class_name || '9-А',
         reason: payload.reason,
         dates: payload.dates,
         has_certificate: true,
@@ -110,48 +162,34 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
       setIsAddOpen(false);
       await loadData();
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка добавления записи';
+      showToast(errorMsg, 'error');
     }
   };
 
-  const handleAppStatus = async (appId, status) => {
+  const handleAppStatus = async (appId: number, status: ClubApplicationStatus): Promise<void> => {
     try {
       await updateClubApplicationStatus(appId, status);
       showToast(status === 'approved' ? 'Заявление одобрено' : 'Заявление отклонено', 'info');
       await loadData();
     } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-
-  const handleQuickSimulate = async () => {
-    setSimulating(true);
-    try {
-      const res = await simulateAbsence(user.class_name);
-      showToast(`⚡ Новое обращение: ${res.student_name} (${res.reason})`, 'info');
-      await loadData();
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setSimulating(false);
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка изменения статуса заявления';
+      showToast(errorMsg, 'error');
     }
   };
 
   const pendingCount = absences.filter((a) => a.status === 'pending').length;
   const approvedCount = absences.filter((a) => a.status === 'approved').length;
 
-  // The club taught by current teacher (e.g. Smirnova -> Programming, Vasiliev -> Robotics)
   const myClub = clubs.find((c) =>
     user.full_name.includes('Смирнова') ? c.title.includes('программирование') :
     user.full_name.includes('Васильев') ? c.title.includes('Робототехника') :
     c.teacher_name.includes(user.full_name.split(' ')[0])
   ) || clubs[0];
 
-  // Applications for teacher's own club
   const myClubApps = applications.filter((a) => myClub && a.club_id === myClub.id);
   const myClubPendingCount = myClubApps.filter((a) => a.status === 'pending').length;
 
-  // Class 9-A extracurricular coverage calculation (Отчёт по внеурочной занятости класса)
   const classAllApps = applications.filter((a) => a.class_name === user.class_name);
   const enrolledStudents = new Set(classAllApps.filter((a) => a.status === 'approved').map((a) => a.student_name));
   const pendingStudents = new Set(classAllApps.filter((a) => a.status === 'pending').map((a) => a.student_name));
@@ -161,7 +199,7 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
 
   const filteredAbsences = useMemo(() => {
     return absences.filter((item) => {
-      const matchFilter = filter === 'all' || item.status === filter;
+      const matchFilter = filter === 'all' || item.status === (filter as AbsenceStatus);
       const matchSearch =
         item.student_name.toLowerCase().includes(search.toLowerCase()) ||
         item.reason.toLowerCase().includes(search.toLowerCase());
@@ -171,7 +209,6 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* 4 Interactive KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           type="button"
@@ -240,12 +277,11 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
         </button>
       </div>
 
-      {/* Main Tabs */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto whitespace-nowrap no-scrollbar pb-1">
         <button
           type="button"
           onClick={() => setActiveTab('absences')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors ${
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${
             activeTab === 'absences'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -256,7 +292,7 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
         <button
           type="button"
           onClick={() => setActiveTab('clubs')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-2 ${
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-2 shrink-0 ${
             activeTab === 'clubs'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -273,21 +309,22 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
 
       {activeTab === 'absences' ? (
         <div className="space-y-4">
-          {/* Action Toolbar */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs font-semibold text-slate-500 mr-2">Фильтр:</span>
-              {[
-                { k: 'all', l: 'Все' },
-                { k: 'pending', l: 'На проверке' },
-                { k: 'approved', l: 'Одобренные' },
-                { k: 'rejected', l: 'Отклоненные' },
-              ].map((f) => (
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap no-scrollbar pb-1 sm:pb-0">
+              <span className="text-xs font-semibold text-slate-500 mr-1 shrink-0">Фильтр:</span>
+              {(
+                [
+                  { k: 'all', l: 'Все' },
+                  { k: 'pending', l: 'На проверке' },
+                  { k: 'approved', l: 'Одобренные' },
+                  { k: 'rejected', l: 'Отклоненные' },
+                ] as const
+              ).map((f) => (
                 <button
                   key={f.k}
                   type="button"
                   onClick={() => setFilter(f.k)}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors shrink-0 ${
                     filter === f.k
                       ? 'bg-blue-600 text-white font-semibold'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
@@ -312,17 +349,6 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
 
               <button
                 type="button"
-                onClick={handleQuickSimulate}
-                disabled={simulating}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-colors shadow-xs"
-                title="Смоделировать входящую справку от случайного ученика"
-              >
-                <Zap className="w-3.5 h-3.5 text-amber-600" />
-                <span>{simulating ? 'Генерация...' : '⚡ Симуляция справки'}</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setIsAddOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors"
               >
@@ -341,8 +367,8 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
 
               <button
                 type="button"
-                onClick={loadData}
-                title="Обновить"
+                onClick={() => loadData(false)}
+                title="Обновить журнал"
                 className="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -350,9 +376,75 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
             </div>
           </div>
 
-          {/* Absences Table */}
           <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Mobile Card View (screens < md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredAbsences.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 text-sm">
+                  Справок по выбранным критериям не найдено
+                </div>
+              ) : (
+                filteredAbsences.map((item) => (
+                  <div key={item.id} className="p-4 space-y-3 hover:bg-slate-50/60 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-bold text-slate-900 text-sm block">{item.student_name}</span>
+                        <span className="text-xs text-slate-500 font-medium">{item.dates}</span>
+                      </div>
+                      <StatusBadge status={item.status} />
+                    </div>
+
+                    <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                      <div className="font-medium text-slate-800">{item.reason}</div>
+                      {item.rejection_reason && (
+                        <div className="text-rose-600 text-[11px] font-medium">
+                          Отказ: {item.rejection_reason}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 gap-2">
+                      {item.has_certificate ? (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDoc(item)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Скан бланка ↗</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">Без файла</span>
+                      )}
+
+                      {item.status === 'pending' ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(item.id)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+                          >
+                            Одобрить
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRejectingId(item.id)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-300 hover:bg-rose-100 transition-colors"
+                          >
+                            Отклонить
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-medium">Обработано</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table View (screens >= md) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   <tr>
@@ -437,8 +529,7 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Sub-tabs for Clubs System (Option B) */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar pb-1">
             <button
               type="button"
               onClick={() => setClubSubTab('class_overview')}
@@ -479,7 +570,6 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
             </button>
           </div>
 
-          {/* SubTab 1: Class Extracurricular Coverage Report */}
           {clubSubTab === 'class_overview' && (
             <div className="space-y-4">
               <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -521,21 +611,21 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
                         const studentApps = applications.filter(
                           (a) => a.student_name.trim().toLowerCase() === name.trim().toLowerCase()
                         );
-                        const approvedClubs = studentApps
+                        const enrolledClubs = studentApps
                           .filter((a) => a.status === 'approved')
                           .map((a) => {
                             const c = clubs.find((item) => item.id === a.club_id);
                             return c?.title || `Кружок №${a.club_id}`;
                           });
 
-                        const pendingClubs = studentApps
+                        const pendingStudentClubs = studentApps
                           .filter((a) => a.status === 'pending')
                           .map((a) => {
                             const c = clubs.find((item) => item.id === a.club_id);
                             return c?.title || `Кружок №${a.club_id}`;
                           });
 
-                        const hasEnrollment = approvedClubs.length > 0;
+                        const hasEnrollment = enrolledClubs.length > 0;
 
                         return (
                           <tr key={name} className="hover:bg-slate-50/60 transition-colors">
@@ -546,7 +636,7 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
                               {name}
                             </td>
                             <td className="py-2.5 px-4 text-xs">
-                              {approvedClubs.map((t) => (
+                              {enrolledClubs.map((t) => (
                                 <span
                                   key={t}
                                   className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium mr-1.5 mb-1"
@@ -554,7 +644,7 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
                                   ✓ {t}
                                 </span>
                               ))}
-                              {pendingClubs.map((t) => (
+                              {pendingStudentClubs.map((t) => (
                                 <span
                                   key={t}
                                   className="inline-block px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-medium mr-1.5 mb-1"
@@ -562,7 +652,7 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
                                   ⏳ {t} (на проверке)
                                 </span>
                               ))}
-                              {approvedClubs.length === 0 && pendingClubs.length === 0 && (
+                              {enrolledClubs.length === 0 && pendingStudentClubs.length === 0 && (
                                 <span className="text-slate-400 text-[11px] italic">
                                   Нет активных записей
                                 </span>
@@ -589,7 +679,6 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
             </div>
           )}
 
-          {/* SubTab 2: My Club Applications & Enrollment */}
           {clubSubTab === 'my_club' && (
             <div className="space-y-4">
               <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs">
@@ -611,7 +700,6 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
                 </div>
               </div>
 
-              {/* Applications for this club */}
               <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200">
                   <h4 className="text-sm font-bold text-slate-900">
@@ -622,7 +710,53 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
                   </p>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Mobile Cards for Club Applications */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {myClubApps.length === 0 ? (
+                    <div className="p-6 text-center text-slate-400 text-sm">
+                      Заявлений в данную секцию пока нет
+                    </div>
+                  ) : (
+                    myClubApps.map((app) => (
+                      <div key={app.id} className="p-4 space-y-2.5 hover:bg-slate-50/60 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-slate-900 text-sm block">{app.student_name}</span>
+                            <span className="text-xs text-slate-500 font-medium">Класс: {app.class_name}</span>
+                          </div>
+                          <StatusBadge status={app.status} />
+                        </div>
+
+                        <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                          <div>Родитель: <strong>{app.parent_name}</strong></div>
+                          <div>Телефон: <a href={`tel:${app.parent_phone}`} className="text-blue-600 font-mono font-semibold underline">{app.parent_phone}</a></div>
+                        </div>
+
+                        {app.status === 'pending' && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleAppStatus(app.id, 'approved')}
+                              className="flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 transition-colors inline-flex items-center justify-center gap-1"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Зачислить
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAppStatus(app.id, 'rejected')}
+                              className="flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-300 hover:bg-rose-100 transition-colors inline-flex items-center justify-center gap-1"
+                            >
+                              <XIcon className="w-3.5 h-3.5" /> Отклонить
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-sm border-collapse">
                     <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       <tr>
@@ -689,7 +823,6 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
             </div>
           )}
 
-          {/* SubTab 3: Full School Clubs Catalog */}
           {clubSubTab === 'catalog' && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -735,10 +868,9 @@ export default function TeacherDashboard({ user, showToast, refreshTrigger }) {
         </div>
       )}
 
-      {/* Modals */}
       <DocumentModal absence={selectedDoc} onClose={() => setSelectedDoc(null)} />
       <RejectModal
-        isOpen={!!rejectingId}
+        isOpen={Boolean(rejectingId)}
         onClose={() => setRejectingId(null)}
         onConfirm={handleReject}
       />

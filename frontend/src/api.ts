@@ -1,28 +1,43 @@
+import type {
+  User,
+  Absence,
+  AbsenceStatus,
+  Club,
+  ClubApplication,
+  ClubApplicationStatus,
+  CreateAbsencePayload,
+  CreateClubPayload,
+  ApplyClubPayload,
+  RegisterPayload,
+  AuthResponse,
+  SimulatedClubAppResponse,
+} from './types';
+
 const API_BASE = '/api';
 
-export async function login(email, password) {
+export async function login(email: string, password: string): Promise<User> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: email.trim(), password: password.trim() }),
   });
-  const data = await res.json();
+  const data: AuthResponse & { detail?: string } = await res.json();
   if (!res.ok) throw new Error(data.detail || 'Неверный логин или пароль');
   return data.user;
 }
 
-export async function register(userData) {
+export async function register(userData: RegisterPayload): Promise<User> {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData),
   });
-  const data = await res.json();
+  const data: AuthResponse & { detail?: string } = await res.json();
   if (!res.ok) throw new Error(data.detail || 'Ошибка регистрации');
   return data.user;
 }
 
-export async function getAbsences(className, studentName) {
+export async function getAbsences(className?: string, studentName?: string): Promise<Absence[]> {
   const params = new URLSearchParams();
   if (className) params.append('class_name', className);
   if (studentName) params.append('student_name', studentName);
@@ -32,7 +47,7 @@ export async function getAbsences(className, studentName) {
   return res.json();
 }
 
-export async function createAbsence(payload) {
+export async function createAbsence(payload: CreateAbsencePayload): Promise<{ id: number; status: string }> {
   const res = await fetch(`${API_BASE}/absences`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -42,7 +57,11 @@ export async function createAbsence(payload) {
   return res.json();
 }
 
-export async function updateAbsenceStatus(id, status, rejectionReason = '') {
+export async function updateAbsenceStatus(
+  id: number,
+  status: AbsenceStatus,
+  rejectionReason: string = ''
+): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/absences/${id}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -52,13 +71,13 @@ export async function updateAbsenceStatus(id, status, rejectionReason = '') {
   return res.json();
 }
 
-export async function getClubs() {
+export async function getClubs(): Promise<Club[]> {
   const res = await fetch(`${API_BASE}/clubs`);
   if (!res.ok) throw new Error('Не удалось загрузить кружки');
   return res.json();
 }
 
-export async function createClub(payload) {
+export async function createClub(payload: CreateClubPayload): Promise<{ id: number; title: string }> {
   const res = await fetch(`${API_BASE}/clubs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -68,9 +87,12 @@ export async function createClub(payload) {
   return res.json();
 }
 
-export async function getClubApplications(clubId, studentName) {
+export async function getClubApplications(
+  clubId?: number,
+  studentName?: string
+): Promise<ClubApplication[]> {
   const params = new URLSearchParams();
-  if (clubId) params.append('club_id', clubId);
+  if (clubId) params.append('club_id', String(clubId));
   if (studentName) params.append('student_name', studentName);
   const query = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API_BASE}/clubs/applications${query}`);
@@ -78,7 +100,7 @@ export async function getClubApplications(clubId, studentName) {
   return res.json();
 }
 
-export async function applyClub(payload) {
+export async function applyClub(payload: ApplyClubPayload): Promise<{ id: number; status: string }> {
   const res = await fetch(`${API_BASE}/clubs/apply`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -88,7 +110,10 @@ export async function applyClub(payload) {
   return res.json();
 }
 
-export async function updateClubApplicationStatus(id, status) {
+export async function updateClubApplicationStatus(
+  id: number,
+  status: ClubApplicationStatus
+): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/clubs/applications/${id}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -98,7 +123,7 @@ export async function updateClubApplicationStatus(id, status) {
   return res.json();
 }
 
-export async function cancelClubApplication(id) {
+export async function cancelClubApplication(id: number): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/clubs/applications/${id}`, {
     method: 'DELETE',
   });
@@ -106,7 +131,7 @@ export async function cancelClubApplication(id) {
   return res.json();
 }
 
-export async function simulateAbsence(className = '9-А') {
+export async function simulateAbsence(className: string = '9-А'): Promise<Absence> {
   const res = await fetch(`${API_BASE}/demo/simulate-absence?class_name=${encodeURIComponent(className)}`, {
     method: 'POST',
   });
@@ -114,7 +139,7 @@ export async function simulateAbsence(className = '9-А') {
   return res.json();
 }
 
-export async function simulateClubApplication() {
+export async function simulateClubApplication(): Promise<SimulatedClubAppResponse> {
   const res = await fetch(`${API_BASE}/demo/simulate-club-application`, {
     method: 'POST',
   });
@@ -122,7 +147,7 @@ export async function simulateClubApplication() {
   return res.json();
 }
 
-export async function resetDatabase() {
+export async function resetDatabase(): Promise<{ status: string; message: string }> {
   const res = await fetch(`${API_BASE}/demo/reset-db`, {
     method: 'POST',
   });

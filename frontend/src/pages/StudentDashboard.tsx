@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
 import {
   getAbsences,
   createAbsence,
@@ -19,26 +19,42 @@ import {
   Calendar,
   Layers,
   MapPin,
-  User,
+  User as UserIcon,
   Trash2,
 } from 'lucide-react';
+import type { Absence, Club, ClubApplication, ToastType, User } from '../types';
 
-export default function StudentDashboard({ user, showToast, refreshTrigger }) {
-  const [activeTab, setActiveTab] = useState('my_clubs'); // 'submit', 'history', 'my_clubs', 'catalog'
-  const [absences, setAbsences] = useState([]);
-  const [clubs, setClubs] = useState([]);
-  const [applications, setApplications] = useState([]);
+interface StudentDashboardProps {
+  user: User;
+  showToast: (msg: string, type?: ToastType) => void;
+  refreshTrigger?: number;
+}
 
-  const [reason, setReason] = useState('Болезнь (справка от врача / медучреждения)');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [hasFile, setHasFile] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+type TabType = 'submit' | 'history' | 'my_clubs' | 'catalog';
 
-  const [selectedDoc, setSelectedDoc] = useState(null);
-  const [applyingClub, setApplyingClub] = useState(null);
+export default function StudentDashboard({
+  user,
+  showToast,
+  refreshTrigger,
+}: StudentDashboardProps): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState<TabType>('my_clubs');
+  const [absences, setAbsences] = useState<Absence[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [applications, setApplications] = useState<ClubApplication[]>([]);
 
-  const loadData = useCallback(async () => {
+  const [reason, setReason] = useState<string>('Болезнь (справка от врача / медучреждения)');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [hasFile, setHasFile] = useState<boolean>(true);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
+  const [selectedDoc, setSelectedDoc] = useState<Absence | null>(null);
+  const [applyingClub, setApplyingClub] = useState<Club | null>(null);
+
+  const isInitialStudentRef = useRef<boolean>(true);
+  const prevStatusesRef = useRef<Map<number, string>>(new Map());
+
+  const loadData = useCallback(async (silent = false): Promise<void> => {
     try {
       const [allAbs, allClubs, allApps] = await Promise.all([
         getAbsences(user.class_name),
@@ -53,26 +69,53 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         (a) => a.student_name.trim().toLowerCase() === user.full_name.trim().toLowerCase()
       );
 
+      if (!isInitialStudentRef.current) {
+        for (const item of myAbs) {
+          const prevStatus = prevStatusesRef.current.get(item.id);
+          if (prevStatus === 'pending' && item.status === 'approved') {
+            showToast(`✅ Ваша справка за ${item.dates} одобрена учителем!`, 'success');
+          } else if (prevStatus === 'pending' && item.status === 'rejected') {
+            showToast(
+              `❌ Ваша справка за ${item.dates} отклонена: ${item.rejection_reason || 'Без причины'}`,
+              'error'
+            );
+          }
+        }
+      }
+
+      const map = new Map<number, string>();
+      for (const item of myAbs) {
+        map.set(item.id, item.status);
+      }
+      prevStatusesRef.current = map;
+      isInitialStudentRef.current = false;
+
       setAbsences(myAbs);
       setClubs(allClubs);
       setApplications(myApps);
     } catch {
-      showToast('Ошибка загрузки данных учащегося', 'error');
+      if (!silent) {
+        showToast('Ошибка загрузки данных учащегося', 'error');
+      }
     }
   }, [user.class_name, user.full_name, showToast]);
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 3000);
+    return () => clearInterval(interval);
   }, [loadData, refreshTrigger]);
 
-  const handleSubmitAbsence = async (e) => {
+  const handleSubmitAbsence = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!startDate || !endDate) {
       showToast('Укажите даты начала и окончания', 'error');
       return;
     }
 
-    const formatDate = (val) => {
+    const formatDate = (val: string): string => {
       const parts = val.split('-');
       return `${parts[2]}.${parts[1]}`;
     };
@@ -82,7 +125,7 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
     try {
       await createAbsence({
         student_name: user.full_name,
-        class_name: user.class_name,
+        class_name: user.class_name || '9-А',
         reason,
         dates,
         has_certificate: hasFile,
@@ -94,18 +137,19 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
       await loadData();
       setActiveTab('history');
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка отправки справки';
+      showToast(errorMsg, 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleApplyClub = async (clubId, parentName, parentPhone) => {
+  const handleApplyClub = async (clubId: number, parentName: string, parentPhone: string): Promise<void> => {
     try {
       await applyClub({
         club_id: clubId,
         student_name: user.full_name,
-        class_name: user.class_name,
+        class_name: user.class_name || '9-А',
         parent_name: parentName,
         parent_phone: parentPhone,
       });
@@ -114,31 +158,32 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
       await loadData();
       setActiveTab('my_clubs');
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка отправки заявления';
+      showToast(errorMsg, 'error');
     }
   };
 
-  const handleCancelApplication = async (appId, clubTitle) => {
+  const handleCancelApplication = async (appId: number, clubTitle: string): Promise<void> => {
     if (!window.confirm(`Вы уверены, что хотите отозвать заявление в «${clubTitle}»?`)) return;
     try {
       await cancelClubApplication(appId);
       showToast(`Заявление в «${clubTitle}» отозвано`, 'info');
       await loadData();
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка отзыва заявления';
+      showToast(errorMsg, 'error');
     }
   };
 
   const approvedCount = absences.filter((a) => a.status === 'approved').length;
   const pendingCount = absences.filter((a) => a.status === 'pending').length;
 
-  const appliedIds = new Set(applications.map((a) => a.club_id));
+  const appliedIds = new Set<number>(applications.map((a) => a.club_id));
   const approvedClubs = applications.filter((a) => a.status === 'approved');
   const pendingClubs = applications.filter((a) => a.status === 'pending');
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* 4 Interactive KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           type="button"
@@ -195,12 +240,11 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         </button>
       </div>
 
-      {/* Main Tabs */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto whitespace-nowrap no-scrollbar pb-1">
         <button
           type="button"
           onClick={() => setActiveTab('my_clubs')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-1.5 ${
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-1.5 shrink-0 ${
             activeTab === 'my_clubs'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -216,7 +260,7 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         <button
           type="button"
           onClick={() => setActiveTab('catalog')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors ${
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${
             activeTab === 'catalog'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -227,7 +271,7 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         <button
           type="button"
           onClick={() => setActiveTab('submit')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors ${
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${
             activeTab === 'submit'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -238,7 +282,7 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-1.5 ${
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-1.5 shrink-0 ${
             activeTab === 'history'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -253,7 +297,6 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         </button>
       </div>
 
-      {/* Tab: My Clubs & Weekly Schedule */}
       {activeTab === 'my_clubs' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -322,7 +365,7 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
 
                       <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-700">
                         <div className="flex items-center gap-2">
-                          <User className="w-3.5 h-3.5 text-slate-400" />
+                          <UserIcon className="w-3.5 h-3.5 text-slate-400" />
                           <span>Преподаватель: <strong>{club?.teacher_name || 'Педагог секции'}</strong></span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -342,7 +385,7 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
                       </span>
                       <button
                         type="button"
-                        onClick={() => handleCancelApplication(app.id, club?.title || app.club_title)}
+                        onClick={() => handleCancelApplication(app.id, club?.title || app.club_title || 'Кружок')}
                         className="text-xs font-semibold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -355,14 +398,13 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
             </div>
           )}
 
-          {/* Weekly Schedule Preview Widget */}
           {approvedClubs.length > 0 && (
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-6 shadow-xs">
               <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-indigo-600" />
                 Моя недельная занятость внеурочкой
               </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-center text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-2.5 text-center text-xs">
                 {['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница'].map((day) => {
                   const match = approvedClubs.find((a) => {
                     const c = clubs.find((item) => item.id === a.club_id);
@@ -403,7 +445,6 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         </div>
       )}
 
-      {/* Tab: Catalog of Clubs */}
       {activeTab === 'catalog' && (
         <div className="space-y-4">
           <div>
@@ -492,7 +533,6 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         </div>
       )}
 
-      {/* Tab: Submit Absence */}
       {activeTab === 'submit' && (
         <div className="max-w-2xl mx-auto">
           <div className="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 shadow-xs">
@@ -589,10 +629,53 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         </div>
       )}
 
-      {/* Tab: Absence History */}
       {activeTab === 'history' && (
         <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Мобильный вид (карточки) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {absences.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-sm">
+                Вы еще не подавали справок об отсутствии
+              </div>
+            ) : (
+              absences.map((item) => (
+                <div key={item.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <strong className="text-sm font-semibold text-slate-900 block">{item.reason}</strong>
+                      <div className="text-xs text-slate-500 mt-0.5">Период: {item.dates}</div>
+                    </div>
+                    <StatusBadge status={item.status} />
+                  </div>
+
+                  {item.rejection_reason && (
+                    <div className="text-[11px] text-rose-600 font-medium bg-rose-50 border border-rose-100 rounded-lg p-2">
+                      Причина отклонения: {item.rejection_reason}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <span className="text-xs text-slate-500">Класс: {item.class_name}</span>
+                    {item.has_certificate ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDoc(item)}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Смотреть скан ↗</span>
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-400">Без файла</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Десктопная таблица */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <tr>
@@ -653,7 +736,6 @@ export default function StudentDashboard({ user, showToast, refreshTrigger }) {
         </div>
       )}
 
-      {/* Modals */}
       <DocumentModal absence={selectedDoc} onClose={() => setSelectedDoc(null)} />
       <ClubApplyModal
         club={applyingClub}

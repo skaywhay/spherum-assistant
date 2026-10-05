@@ -1,9 +1,15 @@
 import React, { useEffect } from 'react';
 import { X, ShieldCheck, FileText, CheckCircle } from 'lucide-react';
+import type { Absence } from '../types';
 
-export default function DocumentModal({ absence, onClose }) {
+interface DocumentModalProps {
+  absence: Absence | null;
+  onClose: () => void;
+}
+
+export default function DocumentModal({ absence, onClose }: DocumentModalProps) {
   useEffect(() => {
-    const handleKey = (e) => {
+    const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKey);
@@ -13,7 +19,8 @@ export default function DocumentModal({ absence, onClose }) {
   if (!absence) return null;
 
   const r = (absence.reason || '').toLowerCase();
-  let docType = 'duty';
+  let docType: 'medical' | 'parent' | 'olympiad' | 'duty' = 'duty';
+
   if (
     r.includes('болезн') ||
     r.includes('орви') ||
@@ -42,17 +49,17 @@ export default function DocumentModal({ absence, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      onClick={(e: React.MouseEvent<HTMLDivElement>) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-600" />
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               Электронный скан документа
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
               Ученик: {absence.student_name} ({absence.class_name})
             </p>
           </div>
@@ -65,26 +72,26 @@ export default function DocumentModal({ absence, onClose }) {
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto bg-slate-100/70">
+        <div className="p-3 sm:p-6 overflow-y-auto bg-slate-100/70">
           {docType === 'medical' && (
-            <div className="bg-amber-50/40 border border-slate-300 rounded-xl p-6 sm:p-8 font-serif shadow-sm text-slate-800 relative overflow-hidden">
-              <div className="flex justify-between items-start border-b border-slate-300 pb-4 text-xs">
+            <div className="bg-amber-50/40 border border-slate-300 rounded-xl p-4 sm:p-8 font-serif shadow-sm text-slate-800 relative overflow-hidden">
+              <div className="flex justify-between items-start border-b border-slate-300 pb-3 sm:pb-4 text-xs">
                 <div>
-                  <strong className="block font-bold">ГБУЗ «Детская городская поликлиника №42»</strong>
-                  <span className="text-slate-500">г. Москва, ОГРН 1037739120481</span>
+                  <strong className="block font-bold">ГБУЗ «ДГП №42»</strong>
+                  <span className="text-[11px] text-slate-500">г. Москва</span>
                 </div>
                 <div className="text-right">
                   <span className="font-bold">Форма № 095/у</span>
-                  <div className="text-slate-500">Утв. Минздравом РФ</div>
+                  <div className="text-[11px] text-slate-500">Утв. Минздравом РФ</div>
                 </div>
               </div>
 
-              <div className="text-center my-6">
-                <h4 className="text-lg font-bold tracking-wide">СПРАВКА № 412/26</h4>
+              <div className="text-center my-4 sm:my-6">
+                <h4 className="text-base sm:text-lg font-bold tracking-wide">СПРАВКА № 412/26</h4>
                 <p className="text-xs text-slate-600 mt-1">О временной нетрудоспособности учащегося</p>
               </div>
 
-              <div className="space-y-2 text-sm leading-relaxed">
+              <div className="space-y-2 text-xs sm:text-sm leading-relaxed">
                 <p>
                   Ф.И.О. учащегося: <strong className="underline underline-offset-4 font-semibold">{absence.student_name}</strong>
                 </p>
@@ -92,7 +99,7 @@ export default function DocumentModal({ absence, onClose }) {
                   Класс / школа: <strong className="underline underline-offset-4 font-semibold">{absence.class_name}, ГБОУ СОШ №1502</strong>
                 </p>
                 <p>
-                  Диагноз: <span className="italic font-medium">J06.9 Острая респираторная вирусная инфекция (ОРВИ)</span>
+                  Диагноз: <span className="italic font-medium">J06.9 ОРВИ</span>
                 </p>
                 <p>
                   Освобожден(а) от занятий: с <strong className="font-semibold text-slate-900">{absence.dates}</strong>
@@ -100,15 +107,15 @@ export default function DocumentModal({ absence, onClose }) {
                 <p className="text-xs text-slate-600 pt-1">Режим: амбулаторный. Контакт с инфекционными больными не установлен.</p>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-slate-300 flex justify-between items-center text-xs">
-                <div className="w-24 h-24 rounded-full border-2 border-dashed border-blue-600/70 flex flex-col items-center justify-center text-[10px] font-bold text-blue-700 uppercase tracking-tighter transform -rotate-12 select-none">
+              <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-300 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
+                <div className="w-22 h-22 sm:w-24 sm:h-24 rounded-full border-2 border-dashed border-blue-600/70 flex flex-col items-center justify-center text-[9px] sm:text-[10px] font-bold text-blue-700 uppercase tracking-tighter transform -rotate-12 select-none shrink-0">
                   <span>ДЛЯ СПРАВОК</span>
                   <span>ДГП №42</span>
-                  <span className="text-[8px] font-normal">ЭЦП ПОДТВЕРЖДЕНО</span>
+                  <span className="text-[7px] sm:text-[8px] font-normal">ЭЦП ПОДТВЕРЖДЕНО</span>
                 </div>
-                <div className="text-right">
+                <div className="text-center sm:text-right">
                   <div className="font-bold">Врач-педиатр: Соколова М.А.</div>
-                  <div className="text-emerald-700 font-sans font-medium flex items-center justify-end gap-1 mt-1 text-[11px]">
+                  <div className="text-emerald-700 font-sans font-medium flex items-center justify-center sm:justify-end gap-1 mt-1 text-[11px]">
                     <ShieldCheck className="w-3.5 h-3.5" /> Заверено квалифицированной ЭЦП
                   </div>
                 </div>
@@ -117,8 +124,8 @@ export default function DocumentModal({ absence, onClose }) {
           )}
 
           {docType === 'parent' && (
-            <div className="bg-white border border-slate-300 rounded-xl p-6 sm:p-8 shadow-sm text-slate-800">
-              <div className="text-right text-xs leading-relaxed max-w-xs ml-auto mb-6 text-slate-600">
+            <div className="bg-white border border-slate-300 rounded-xl p-4 sm:p-8 shadow-sm text-slate-800">
+              <div className="text-right text-xs leading-relaxed max-w-xs ml-auto mb-4 sm:mb-6 text-slate-600">
                 Директору ГБОУ СОШ № 1502<br />
                 Воронину А.В.<br />
                 от законного представителя<br />
@@ -126,11 +133,11 @@ export default function DocumentModal({ absence, onClose }) {
                 <strong className="text-slate-900">{absence.student_name}</strong>
               </div>
 
-              <div className="text-center my-6">
-                <h4 className="text-base font-bold tracking-widest uppercase">ЗАЯВЛЕНИЕ</h4>
+              <div className="text-center my-4 sm:my-6">
+                <h4 className="text-sm sm:text-base font-bold tracking-widest uppercase">ЗАЯВЛЕНИЕ</h4>
               </div>
 
-              <div className="space-y-3 text-sm leading-relaxed">
+              <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm leading-relaxed">
                 <p>
                   Прошу Вас отпустить моего ребенка с учебных занятий на период:{' '}
                   <strong className="underline underline-offset-4">{absence.dates}</strong>.
@@ -138,14 +145,14 @@ export default function DocumentModal({ absence, onClose }) {
                 <p>
                   Причина отсутствия: <span className="italic">{absence.reason}</span>.
                 </p>
-                <p className="text-xs text-slate-600">
+                <p className="text-[11px] sm:text-xs text-slate-600">
                   Ответственность за жизнь и здоровье ребенка, а также за освоение образовательной программы беру на себя.
                 </p>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-slate-200 flex justify-between items-center text-xs">
-                <span className="text-slate-500">Дата подачи: 25.09.2026 г.</span>
-                <div className="text-right">
+              <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                <span className="text-slate-500 text-[11px]">Дата подачи: 25.09.2026 г.</span>
+                <div className="text-left sm:text-right">
                   <span className="font-handwriting text-lg text-blue-700 select-none mr-2">/Кузнецова О.Н./</span>
                   <span className="text-slate-500 block text-[10px]">Подпись законного представителя</span>
                 </div>
@@ -154,23 +161,23 @@ export default function DocumentModal({ absence, onClose }) {
           )}
 
           {docType === 'olympiad' && (
-            <div className="bg-sky-50/40 border border-sky-200 rounded-xl p-6 sm:p-8 shadow-sm text-slate-800">
+            <div className="bg-sky-50/40 border border-sky-200 rounded-xl p-4 sm:p-8 shadow-sm text-slate-800">
               <div className="border-b border-sky-200 pb-3 mb-4 text-center">
-                <span className="text-[11px] font-semibold text-sky-800 tracking-wider uppercase block">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-sky-800 tracking-wider uppercase block">
                   Министерство просвещения РФ • Региональный оргкомитет
                 </span>
-                <h4 className="text-sm font-bold text-slate-900 mt-1">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 mt-1">
                   ВСЕРОССИЙСКАЯ ОЛИМПИАДА ШКОЛЬНИКОВ (ВсОШ)
                 </h4>
               </div>
 
-              <div className="text-center my-4">
-                <span className="inline-block bg-sky-100 text-sky-900 text-xs font-bold px-3 py-1 rounded-md">
+              <div className="text-center my-3 sm:my-4">
+                <span className="inline-block bg-sky-100 text-sky-900 text-[11px] sm:text-xs font-bold px-3 py-1 rounded-md">
                   ОФИЦИАЛЬНЫЙ ВЫЗОВ НА ЭТАП СОРЕВНОВАНИЙ
                 </span>
               </div>
 
-              <div className="space-y-3 text-sm leading-relaxed">
+              <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm leading-relaxed">
                 <p>
                   Организационный комитет подтверждает вызов учащегося{' '}
                   <strong className="underline underline-offset-4">{absence.student_name}</strong> ({absence.class_name}) для
@@ -192,18 +199,18 @@ export default function DocumentModal({ absence, onClose }) {
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[10px] sm:text-[11px] text-slate-500">
                   Основание: распоряжение Департамента образования № 614/од.
                 </p>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-sky-200 flex justify-between items-center text-xs">
-                <div className="border border-sky-600 text-sky-700 font-bold px-3 py-1 rounded text-[10px] uppercase">
+              <div className="mt-6 pt-4 border-t border-sky-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                <div className="border border-sky-600 text-sky-700 font-bold px-2.5 py-0.5 rounded text-[10px] uppercase">
                   ОРГКОМИТЕТ ВсОШ
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <div className="font-bold">Председатель жюри: проф. Белов В.А.</div>
-                  <span className="text-emerald-600 font-medium text-[11px] flex items-center justify-end gap-1">
+                  <span className="text-emerald-600 font-medium text-[10px] sm:text-[11px] flex items-center gap-1 mt-0.5">
                     <CheckCircle className="w-3 h-3" /> Верифицировано в ФИС ОГЭ/ЕГЭ
                   </span>
                 </div>
@@ -212,24 +219,24 @@ export default function DocumentModal({ absence, onClose }) {
           )}
 
           {docType === 'duty' && (
-            <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-6 sm:p-8 shadow-sm text-slate-800">
+            <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 sm:p-8 shadow-sm text-slate-800">
               <div className="flex justify-between items-center border-b border-amber-200 pb-3 mb-4">
                 <div>
                   <strong className="block text-xs font-bold">ГБОУ «Школа № 1502»</strong>
-                  <span className="text-[11px] text-slate-500">Служба дежурного администратора</span>
+                  <span className="text-[10px] sm:text-[11px] text-slate-500">Служба дежурного администратора</span>
                 </div>
-                <div className="text-right text-[11px] font-mono text-slate-500">
+                <div className="text-right text-[10px] sm:text-[11px] font-mono text-slate-500">
                   № 84 от 25.09.2026 г.
                 </div>
               </div>
 
-              <div className="text-center my-4">
-                <h4 className="text-base font-bold text-slate-900 uppercase tracking-wide">
+              <div className="text-center my-3 sm:my-4">
+                <h4 className="text-xs sm:text-base font-bold text-slate-900 uppercase tracking-wide">
                   ТАЛОН-РАЗРЕШЕНИЕ НА ВЫХОД
                 </h4>
               </div>
 
-              <div className="space-y-2 text-sm leading-relaxed">
+              <div className="space-y-2 text-xs sm:text-sm leading-relaxed">
                 <p>
                   Учащийся: <strong className="underline underline-offset-4">{absence.student_name}</strong>
                 </p>
@@ -242,12 +249,12 @@ export default function DocumentModal({ absence, onClose }) {
                 <p>
                   Основание: <span className="italic">{absence.reason}</span>
                 </p>
-                <p className="text-xs text-emerald-700 font-medium pt-1">
+                <p className="text-[11px] sm:text-xs text-emerald-700 font-medium pt-1">
                   ✓ Согласовано с родителями по телефону дежурным завучем.
                 </p>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-amber-200 flex justify-between items-center text-xs">
+              <div className="mt-6 pt-4 border-t border-amber-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
                 <div>
                   Дежурный завуч: <strong className="text-slate-900">Николаева С.В.</strong>
                 </div>

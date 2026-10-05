@@ -1,18 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, type FormEvent } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 
-export default function RejectModal({ isOpen, onClose, onConfirm }) {
-  const [reason, setReason] = useState('Некорректно указан период болезни');
+interface RejectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}
+
+export default function RejectModal({ isOpen, onClose, onConfirm }: RejectModalProps): React.JSX.Element | null {
+  const [reason, setReason] = useState<string>('Некорректно указан период болезни');
 
   if (!isOpen) return null;
 
+  const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    onConfirm(reason);
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-rose-500" />
             Причина отклонения справки
@@ -26,13 +37,8 @@ export default function RejectModal({ isOpen, onClose, onConfirm }) {
           </button>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onConfirm(reason);
-          }}
-        >
-          <div className="p-6 space-y-4">
+        <form onSubmit={handleSubmit}>
+          <div className="p-4 sm:p-6 space-y-4">
             <p className="text-xs text-slate-500">
               Укажите причину для ученика и родителей. Она будет отображаться в личном кабинете:
             </p>

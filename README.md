@@ -64,7 +64,7 @@
 
 ## 🛠 Стек технологий
 
-- **Frontend:** React 19, Tailwind CSS v4, Vite, Lucide Icons.
+- **Frontend:** React 19, TypeScript (Strict Mode, 100% без `any`), Tailwind CSS v4, Vite, Lucide Icons.
 - **Backend:** Python 3.11+, FastAPI, SQLite (легковесная БД без внешних СУБД), Pydantic.
 - **DevOps & Автономность:** Dockerfile, запуск в 1 клик (`run.bat`, `run.py`).
 - **Zero-Dependency Serving:** продакшн-бандл скомпилирован в `frontend/dist/` и раздаётся напрямую через FastAPI — проверяющим **не требуется** устанавливать Node.js или npm.
@@ -78,28 +78,31 @@ spherum-assistant/
 ├── app/
 │   ├── main.py                     # FastAPI сервер, REST API маршруты, раздача SPA
 │   └── database.py                 # SQLite база данных, сидирование 4 ролей, генераторы симуляции
-├── frontend/                       # Исходный код React 19 + Tailwind CSS
+├── frontend/                       # Исходный код React 19 + TypeScript + Tailwind CSS
 │   ├── dist/                       # Скомпилированный продакшн-бандл (раздаётся сервером)
 │   ├── src/
-│   │   ├── api.js                  # Чистый API-клиент (fetch обёртки)
-│   │   ├── App.jsx                 # Управление сессией, маршрутизация, таймер симуляции
-│   │   ├── main.jsx                # Точка входа React 19
+│   │   ├── types.ts                # Строгие интерфейсы моделей и DTO (без any)
+│   │   ├── api.ts                  # Строго типизированный API-клиент (fetch обёртки)
+│   │   ├── App.tsx                 # Управление сессией, маршрутизация, таймер симуляции
+│   │   ├── main.tsx                # Точка входа React 19
+│   │   ├── vite-env.d.ts           # Типы окружения Vite
 │   │   ├── index.css               # Стили Tailwind CSS v4
 │   │   ├── components/
-│   │   │   ├── Header.jsx          # Шапка с профилем и интерактивным колокольчиком
-│   │   │   ├── NotificationPopup.jsx # Всплывающее окно входящих обращений при входе
-│   │   │   ├── JuryPanel.jsx       # Панель жюри (симуляция, переключение, песочница)
-│   │   │   ├── DocumentModal.jsx   # 4 аутентичных бланка (095/у, заявление, ВсОШ, талон)
-│   │   │   ├── RosterModal.jsx     # Журнал оперативного учёта 28 учеников
-│   │   │   ├── AddAbsenceModal.jsx # Внесение отсутствия учителем
-│   │   │   ├── RejectModal.jsx     # Отклонение справки с выбором причины
-│   │   │   ├── ClubApplyModal.jsx  # Электронная запись в кружок
-│   │   │   ├── StatusBadge.jsx     # Бейджи статусов (Одобрено, На проверке, Отклонено)
-│   │   │   └── Toast.jsx           # Всплывающие уведомления
+│   │   │   ├── Header.tsx          # Шапка с профилем и интерактивным колокольчиком
+│   │   │   ├── NotificationPopup.tsx # Всплывающее окно входящих обращений при входе
+│   │   │   ├── JuryPanel.tsx       # Панель жюри (симуляция, переключение, песочница)
+│   │   │   ├── DocumentModal.tsx   # 4 аутентичных бланка (095/у, заявление, ВсОШ, талон)
+│   │   │   ├── RosterModal.tsx     # Журнал оперативного учёта 28 учеников
+│   │   │   ├── AddAbsenceModal.tsx # Внесение отсутствия учителем
+│   │   │   ├── RejectModal.tsx     # Отклонение справки с выбором причины
+│   │   │   ├── ClubApplyModal.tsx  # Электронная запись в кружок
+│   │   │   ├── StatusBadge.tsx     # Бейджи статусов (Одобрено, На проверке, Отклонено)
+│   │   │   └── Toast.tsx           # Всплывающие уведомления
 │   │   └── pages/
-│   │       ├── AuthPage.jsx        # 4 карточки быстрого входа для жюри + логин/регистрация
-│   │       ├── TeacherDashboard.jsx # Кабинет учителя (KPI, справки, ведомость внеурочки 9-А)
-│   │       └── StudentDashboard.jsx # Кабинет ученика (подача, мои кружки, недельный график)
+│   │       ├── AuthPage.tsx        # 4 карточки быстрого входа для жюри + логин/регистрация
+│   │       ├── TeacherDashboard.tsx # Кабинет учителя (KPI, справки, ведомость внеурочки 9-А)
+│   │       └── StudentDashboard.tsx # Кабинет ученика (подача, мои кружки, недельный график)
+│   ├── tsconfig.json               # Строгая конфигурация TypeScript
 │   ├── package.json
 │   └── vite.config.js
 ├── run.bat                         # Запуск в 1 клик для Windows (без Node.js)

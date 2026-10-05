@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, type FormEvent } from 'react';
 import {
   simulateAbsence,
   simulateClubApplication,
@@ -17,8 +17,16 @@ import {
   Layers,
   CheckCircle2,
 } from 'lucide-react';
+import type { ToastType, User } from '../types';
 
-const DEMO_USERS = [
+interface DemoUserItem {
+  title: string;
+  role: string;
+  email: string;
+  pass: string;
+}
+
+const DEMO_USERS: DemoUserItem[] = [
   {
     title: 'Смирнова Елена Викторовна',
     role: 'Классрук 9-А • Секция «Программирование»',
@@ -45,6 +53,15 @@ const DEMO_USERS = [
   },
 ];
 
+interface JuryPanelProps {
+  currentUser: User | null;
+  onSwitchUser: (email: string, pass: string) => void;
+  onDataChanged?: () => void;
+  showToast: (msg: string, type?: ToastType) => void;
+  autoSimulate: boolean;
+  setAutoSimulate: (val: boolean) => void;
+}
+
 export default function JuryPanel({
   currentUser,
   onSwitchUser,
@@ -52,20 +69,19 @@ export default function JuryPanel({
   showToast,
   autoSimulate,
   setAutoSimulate,
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+}: JuryPanelProps): React.JSX.Element {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // New club form state
-  const [showAddClub, setShowAddClub] = useState(false);
-  const [clubTitle, setClubTitle] = useState('');
-  const [clubDesc, setClubDesc] = useState('');
-  const [clubTeacher, setClubTeacher] = useState('');
-  const [clubSchedule, setClubSchedule] = useState('');
-  const [clubRoom, setClubRoom] = useState('');
-  const [clubSlots, setClubSlots] = useState(15);
+  const [showAddClub, setShowAddClub] = useState<boolean>(false);
+  const [clubTitle, setClubTitle] = useState<string>('');
+  const [clubDesc, setClubDesc] = useState<string>('');
+  const [clubTeacher, setClubTeacher] = useState<string>('');
+  const [clubSchedule, setClubSchedule] = useState<string>('');
+  const [clubRoom, setClubRoom] = useState<string>('');
+  const [clubSlots, setClubSlots] = useState<number>(15);
 
-  const handleSimulateAbsence = async () => {
+  const handleSimulateAbsence = async (): Promise<void> => {
     setLoading(true);
     try {
       const cls = currentUser?.class_name || '9-А';
@@ -76,33 +92,35 @@ export default function JuryPanel({
       );
       if (onDataChanged) onDataChanged();
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка при симуляции справки';
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSimulateClubApp = async () => {
+  const handleSimulateClubApp = async (): Promise<void> => {
     setLoading(true);
     try {
       const res = await simulateClubApplication();
-      if (res.status === 'ok') {
+      if (res.status === 'ok' && res.application) {
         showToast(
           `⚡ Заявка в кружок: ${res.application.student_name} записался в «${res.application.club_title}»`,
           'success'
         );
         if (onDataChanged) onDataChanged();
       } else {
-        showToast(res.message, 'info');
+        showToast(res.message || 'Нет доступных мест или кружков', 'info');
       }
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка при симуляции заявки';
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateClub = async (e) => {
+  const handleCreateClub = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!clubTitle.trim() || !clubTeacher.trim()) return;
     setLoading(true);
@@ -124,13 +142,14 @@ export default function JuryPanel({
       setShowAddClub(false);
       if (onDataChanged) onDataChanged();
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка создания кружка';
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleReset = async () => {
+  const handleReset = async (): Promise<void> => {
     if (!window.confirm('Сбросить базу данных к начальному состоянию конкурса?')) return;
     setLoading(true);
     try {
@@ -138,7 +157,8 @@ export default function JuryPanel({
       showToast('База данных успешно возвращена в исходное состояние', 'success');
       if (onDataChanged) onDataChanged();
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка сброса базы данных';
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -146,15 +166,15 @@ export default function JuryPanel({
 
   return (
     <>
-      {/* Floating Jury Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-5 left-5 z-40 inline-flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-slate-900 text-white font-semibold text-xs shadow-xl hover:bg-slate-800 hover:scale-105 transition-all border border-slate-700/60 group"
+        className="fixed bottom-4 left-3 sm:bottom-5 sm:left-5 z-40 inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-full bg-slate-900 text-white font-semibold text-xs shadow-xl hover:bg-slate-800 hover:scale-105 transition-all border border-slate-700/60 group"
       >
         <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
         <Zap className="w-3.5 h-3.5 text-amber-400" />
-        <span>Панель жюри</span>
+        <span className="hidden xs:inline">Панель жюри</span>
+        <span className="xs:hidden">Жюри</span>
         {autoSimulate && (
           <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-1.5 py-0.5 rounded-full border border-emerald-500/30">
             Live
@@ -162,27 +182,26 @@ export default function JuryPanel({
         )}
       </button>
 
-      {/* Jury Modal */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in"
           onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
-              <div className="flex items-center gap-2.5">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+              <div className="flex items-center gap-2 sm:gap-2.5">
                 <div className="p-1.5 rounded-lg bg-amber-400/20 text-amber-400">
-                  <Zap className="w-5 h-5" />
+                  <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-bold flex items-center gap-1.5 sm:gap-2">
                     Панель жюри и симуляции
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
+                    <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
                       Sandbox Mode
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-400">
-                    Управление динамическим потоком справок, кружками и тестовыми профилями
+                  <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-1">
+                    Управление потоком справок, кружками и тестовыми профилями
                   </p>
                 </div>
               </div>
@@ -195,8 +214,7 @@ export default function JuryPanel({
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto space-y-6">
-              {/* Block 1: Dynamic Simulation */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -265,7 +283,6 @@ export default function JuryPanel({
                 </div>
               </div>
 
-              {/* Block 2: Quick User Switching */}
               <div className="space-y-3 pt-4 border-t border-slate-100">
                 <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-indigo-600" />
@@ -299,7 +316,6 @@ export default function JuryPanel({
                 </div>
               </div>
 
-              {/* Block 3: Clubs Management */}
               <div className="space-y-3 pt-4 border-t border-slate-100">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -354,7 +370,7 @@ export default function JuryPanel({
                       />
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="font-semibold text-slate-700 block mb-1">Расписание</label>
                         <input
@@ -380,7 +396,7 @@ export default function JuryPanel({
                         <input
                           type="number"
                           value={clubSlots}
-                          onChange={(e) => setClubSlots(e.target.value)}
+                          onChange={(e) => setClubSlots(Number(e.target.value) || 0)}
                           className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
                         />
                       </div>
@@ -397,7 +413,6 @@ export default function JuryPanel({
                 )}
               </div>
 
-              {/* Block 4: Reset Demo Data */}
               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                 <div>
                   <span className="text-xs font-semibold text-slate-700 block">

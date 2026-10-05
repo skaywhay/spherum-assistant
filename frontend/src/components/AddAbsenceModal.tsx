@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, type FormEvent } from 'react';
 import { X, UserPlus } from 'lucide-react';
+import type { AddAbsencePayload } from '../types';
 
-export default function AddAbsenceModal({ isOpen, onClose, onAdd }) {
-  const [name, setName] = useState('');
-  const [reason, setReason] = useState('Болезнь (справка от врача / медучреждения)');
-  const [dates, setDates] = useState('');
+interface AddAbsenceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAdd: (data: AddAbsencePayload) => void;
+}
+
+export default function AddAbsenceModal({ isOpen, onClose, onAdd }: AddAbsenceModalProps): React.JSX.Element | null {
+  const [name, setName] = useState<string>('');
+  const [reason, setReason] = useState<string>('Болезнь (справка от врача / медучреждения)');
+  const [dates, setDates] = useState<string>('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     if (!name.trim() || !dates.trim()) return;
     onAdd({ student_name: name.trim(), reason, dates: dates.trim() });
@@ -18,11 +25,11 @@ export default function AddAbsenceModal({ isOpen, onClose, onAdd }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-blue-600" />
             Внести запись об отсутствии
@@ -37,7 +44,7 @@ export default function AddAbsenceModal({ isOpen, onClose, onAdd }) {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Ф.И.О. учащегося

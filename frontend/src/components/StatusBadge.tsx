@@ -1,6 +1,11 @@
-import React from 'react';
+import type { JSX } from 'react';
+import type { AbsenceStatus, ClubApplicationStatus } from '../types';
 
-export default function StatusBadge({ status }) {
+interface StatusBadgeProps {
+  status: AbsenceStatus | ClubApplicationStatus;
+}
+
+export default function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
   if (status === 'approved') {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">

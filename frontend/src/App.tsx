@@ -7,33 +7,38 @@ import AuthPage from './pages/AuthPage';
 import TeacherDashboard from './pages/TeacherDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import { login, simulateAbsence, getAbsences, getClubApplications } from './api';
+import type { Absence, ClubApplication, NotificationItem, ToastMessage, ToastType, User } from './types';
 
-export default function App() {
-  const [currentUser, setCurrentUser] = useState(() => {
+export default function App(): React.JSX.Element {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('sferum_user');
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const parsed: unknown = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && 'id' in parsed && 'email' in parsed) {
+        return parsed as User;
+      }
+      return null;
     } catch {
       return null;
     }
   });
 
-  const [toast, setToast] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [autoSimulate, setAutoSimulate] = useState(false);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
+  const [autoSimulate, setAutoSimulate] = useState<boolean>(false);
 
-  const [absences, setAbsences] = useState([]);
-  const [applications, setApplications] = useState([]);
+  const [absences, setAbsences] = useState<Absence[]>([]);
+  const [applications, setApplications] = useState<ClubApplication[]>([]);
 
-  const showToast = useCallback((message, type = 'info') => {
+  const showToast = useCallback((message: string, type: ToastType = 'info'): void => {
     setToast({ message, type });
   }, []);
 
-  const triggerRefresh = useCallback(() => {
+  const triggerRefresh = useCallback((): void => {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  // Fetch pending items for header badge & notification popup
   useEffect(() => {
     if (!currentUser) {
       setAbsences([]);
@@ -41,48 +46,54 @@ export default function App() {
       return;
     }
 
-    Promise.all([
-      getAbsences(currentUser.class_name),
-      getClubApplications(),
-    ])
-      .then(([abs, apps]) => {
-        setAbsences(abs || []);
-        if (currentUser.role === 'teacher') {
-          setApplications(apps || []);
-        } else {
-          setApplications(
-            (apps || []).filter(
-              (a) => a.student_name.trim().toLowerCase() === currentUser.full_name.trim().toLowerCase()
-            )
-          );
-        }
-      })
-      .catch(() => {});
+    const fetchNotifications = (): void => {
+      Promise.all([
+        getAbsences(currentUser.class_name),
+        getClubApplications(),
+      ])
+        .then(([abs, apps]) => {
+          setAbsences(abs || []);
+          if (currentUser.role === 'teacher') {
+            setApplications(apps || []);
+          } else {
+            setApplications(
+              (apps || []).filter(
+                (a) => a.student_name.trim().toLowerCase() === currentUser.full_name.trim().toLowerCase()
+              )
+            );
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchNotifications();
+    const timer = setInterval(fetchNotifications, 3500);
+    return () => clearInterval(timer);
   }, [currentUser, refreshKey]);
 
-  const handleLoginSuccess = (user) => {
+  const handleLoginSuccess = (user: User): void => {
     setCurrentUser(user);
     localStorage.setItem('sferum_user', JSON.stringify(user));
     showToast(`Добро пожаловать, ${user.full_name}!`, 'success');
   };
 
-  const handleLogout = () => {
+  const handleLogout = (): void => {
     localStorage.removeItem('sferum_user');
     setCurrentUser(null);
     showToast('Вы вышли из системы', 'info');
   };
 
-  const handleSwitchUser = async (email, password) => {
+  const handleSwitchUser = async (email: string, pass: string): Promise<void> => {
     try {
-      const user = await login(email, password);
+      const user = await login(email, pass);
       handleLoginSuccess(user);
       triggerRefresh();
     } catch (err) {
-      showToast(err.message, 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка смены профиля';
+      showToast(errorMsg, 'error');
     }
   };
 
-  // Live incoming absence simulation loop (Option B / Hackathon Mode)
   useEffect(() => {
     if (!autoSimulate) return;
 
@@ -103,7 +114,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, [autoSimulate, currentUser?.class_name, showToast, triggerRefresh]);
 
-  // Notifications calculation for Header
   const isTeacher = currentUser?.role === 'teacher';
   const pendingAbsences = isTeacher
     ? absences.filter((a) => a.status === 'pending')
@@ -119,7 +129,7 @@ export default function App() {
     ? applications.filter((a) => a.status === 'approved')
     : [];
 
-  const headerNotifications = isTeacher
+  const headerNotifications: NotificationItem[] = isTeacher
     ? [
         ...pendingAbsences.map((a) => ({
           title: `Справка: ${a.student_name}`,
@@ -145,9 +155,9 @@ export default function App() {
         })),
       ];
 
-  const [seenNotificationsCount, setSeenNotificationsCount] = useState(0);
+  const [seenNotificationsCount, setSeenNotificationsCount] = useState<number>(0);
 
-  const handleMarkAllRead = useCallback(() => {
+  const handleMarkAllRead = useCallback((): void => {
     setSeenNotificationsCount(headerNotifications.length);
   }, [headerNotifications.length]);
 
@@ -170,12 +180,13 @@ export default function App() {
       )}
 
       <main className="flex-1 pb-16">
-        {!currentUser && <AuthPage onLoginSuccess={handleLoginSuccess} />}
+        {!currentUser && (
+          <AuthPage onLoginSuccess={handleLoginSuccess} showToast={showToast} />
+        )}
 
         {currentUser && currentUser.role === 'teacher' && (
           <TeacherDashboard
             user={currentUser}
-            onLogout={handleLogout}
             showToast={showToast}
             refreshTrigger={refreshKey}
           />
@@ -184,14 +195,12 @@ export default function App() {
         {currentUser && currentUser.role !== 'teacher' && (
           <StudentDashboard
             user={currentUser}
-            onLogout={handleLogout}
             showToast={showToast}
             refreshTrigger={refreshKey}
           />
         )}
       </main>
 
-      {/* Floating Welcome Notification on Entry */}
       {currentUser && (
         <NotificationPopup
           user={currentUser}
@@ -201,7 +210,6 @@ export default function App() {
         />
       )}
 
-      {/* Persistent Jury Sandbox Control Center */}
       <JuryPanel
         currentUser={currentUser}
         onSwitchUser={handleSwitchUser}

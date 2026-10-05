@@ -1,7 +1,13 @@
-import React, { useEffect } from 'react';
+import { useEffect, type JSX } from 'react';
 import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
+import type { ToastMessage } from '../types';
 
-export default function Toast({ toast, onClose }) {
+interface ToastProps {
+  toast: ToastMessage | null;
+  onClose: () => void;
+}
+
+export default function Toast({ toast, onClose }: ToastProps): JSX.Element | null {
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(onClose, 3500);
@@ -16,9 +22,11 @@ export default function Toast({ toast, onClose }) {
     info: <Info className="w-5 h-5 text-blue-500 shrink-0" />,
   };
 
+  const type = toast.type || 'info';
+
   return (
     <div className="fixed bottom-6 right-6 z-50 animate-fade-in flex items-center gap-3 bg-white border border-slate-200 shadow-xl rounded-xl px-4 py-3 min-w-[280px] max-w-md">
-      {icons[toast.type] || icons.info}
+      {icons[type]}
       <span className="text-sm font-medium text-slate-800 flex-1">{toast.message}</span>
       <button
         type="button"
