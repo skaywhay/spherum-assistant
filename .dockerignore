@@ -1,0 +1,14 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+node_modules/
+frontend/node_modules/
+.vscode/
+.idea/
+*.log
+spherum.db

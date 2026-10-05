@@ -15,6 +15,17 @@ import type {
 
 const API_BASE = '/api';
 
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('sferum_token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+}
+
 export async function login(email: string, password: string): Promise<User> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
@@ -23,6 +34,9 @@ export async function login(email: string, password: string): Promise<User> {
   });
   const data: AuthResponse & { detail?: string } = await res.json();
   if (!res.ok) throw new Error(data.detail || 'Неверный логин или пароль');
+  if (data.token) {
+    localStorage.setItem('sferum_token', data.token);
+  }
   return data.user;
 }
 
@@ -34,6 +48,9 @@ export async function register(userData: RegisterPayload): Promise<User> {
   });
   const data: AuthResponse & { detail?: string } = await res.json();
   if (!res.ok) throw new Error(data.detail || 'Ошибка регистрации');
+  if (data.token) {
+    localStorage.setItem('sferum_token', data.token);
+  }
   return data.user;
 }
 
@@ -50,7 +67,7 @@ export async function getAbsences(className?: string, studentName?: string): Pro
 export async function createAbsence(payload: CreateAbsencePayload): Promise<{ id: number; status: string }> {
   const res = await fetch(`${API_BASE}/absences`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error('Не удалось отправить справку');
@@ -64,7 +81,7 @@ export async function updateAbsenceStatus(
 ): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/absences/${id}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ status, rejection_reason: rejectionReason }),
   });
   if (!res.ok) throw new Error('Не удалось обновить статус');
@@ -80,7 +97,7 @@ export async function getClubs(): Promise<Club[]> {
 export async function createClub(payload: CreateClubPayload): Promise<{ id: number; title: string }> {
   const res = await fetch(`${API_BASE}/clubs`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error('Не удалось создать кружок');
@@ -103,7 +120,7 @@ export async function getClubApplications(
 export async function applyClub(payload: ApplyClubPayload): Promise<{ id: number; status: string }> {
   const res = await fetch(`${API_BASE}/clubs/apply`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error('Не удалось подать заявление');
@@ -116,7 +133,7 @@ export async function updateClubApplicationStatus(
 ): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/clubs/applications/${id}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error('Не удалось обновить статус заявления');
@@ -126,6 +143,7 @@ export async function updateClubApplicationStatus(
 export async function cancelClubApplication(id: number): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/clubs/applications/${id}`, {
     method: 'DELETE',
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error('Не удалось отозвать заявление');
   return res.json();

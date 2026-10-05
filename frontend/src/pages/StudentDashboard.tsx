@@ -244,11 +244,10 @@ export default function StudentDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('my_clubs')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'my_clubs'
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-1.5 shrink-0 ${activeTab === 'my_clubs'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           <span>Мои кружки и расписание</span>
           {applications.length > 0 && (
@@ -260,33 +259,30 @@ export default function StudentDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('catalog')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${
-            activeTab === 'catalog'
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${activeTab === 'catalog'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           Каталог секций ({clubs.length})
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('submit')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${
-            activeTab === 'submit'
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${activeTab === 'submit'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           Подать справку
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'history'
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-1.5 shrink-0 ${activeTab === 'history'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           <span>История справок</span>
           {absences.length > 0 && (
@@ -342,9 +338,8 @@ export default function StudentDashboard({
                 return (
                   <div
                     key={app.id}
-                    className={`bg-white border rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all ${
-                      isApproved ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200/80'
-                    }`}
+                    className={`bg-white border rounded-2xl p-5 shadow-xs flex flex-col justify-between transition-all ${isApproved ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200/80'
+                      }`}
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
@@ -420,11 +415,10 @@ export default function StudentDashboard({
                   return (
                     <div
                       key={day}
-                      className={`p-3 rounded-xl border ${
-                        match
+                      className={`p-3 rounded-xl border ${match
                           ? 'border-indigo-200 bg-indigo-50/60 font-semibold text-indigo-900'
                           : 'border-slate-100 bg-slate-50/50 text-slate-400'
-                      }`}
+                        }`}
                     >
                       <div className="text-[11px] font-bold">{day}</div>
                       <div className="mt-1 text-xs">

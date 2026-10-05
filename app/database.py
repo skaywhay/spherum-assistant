@@ -1,18 +1,11 @@
 import sqlite3
-import hashlib
 from typing import List, Dict, Any, Optional
+from app.security import hash_password, verify_password, sanitize_text
 
 DB_PATH = "spherum.db"
 
 
-def hash_password(password: str) -> str:
-    """Хэширование пароля через SHA-256 с солью"""
-    salt = "spherum_salt_2026"
-    return hashlib.sha256((password + salt).encode("utf-8")).hexdigest()
-
-
 def init_db():
-    """Создание таблиц и начальных данных при первом старте сервиса"""
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         
@@ -93,9 +86,6 @@ def init_db():
 
 
 def create_demo_users(conn: sqlite3.Connection):
-    """Инициализация 4 тестовых аккаунтов для жюри:
-       2 классных руководителя (9-А и 10-Б) и 2 привязанных ученика
-    """
     cursor = conn.cursor()
     demo_users = [
         # Учитель 1: 9-А класс
@@ -146,7 +136,6 @@ def create_demo_users(conn: sqlite3.Connection):
 
 
 def create_demo_clubs(conn: sqlite3.Connection):
-    """Начальный каталог школьных кружков"""
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM clubs")
     count = cursor.fetchone()[0]
@@ -181,26 +170,29 @@ def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
 
 
 def create_user(email: str, password: str, full_name: str, role: str, class_name: str) -> Dict[str, Any]:
+    safe_name = sanitize_text(full_name, max_len=100)
+    safe_role = "teacher" if role == "teacher" else "student"
+    safe_class = sanitize_text(class_name, max_len=20)
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.execute(
             "INSERT INTO users (email, password_hash, full_name, role, class_name) VALUES (?, ?, ?, ?, ?)",
-            (email.lower(), hash_password(password), full_name, role, class_name)
+            (email.lower().strip(), hash_password(password), safe_name, safe_role, safe_class)
         )
         conn.commit()
         return {
             "id": cursor.lastrowid,
-            "email": email.lower(),
-            "full_name": full_name,
-            "role": role,
-            "class_name": class_name
+            "email": email.lower().strip(),
+            "full_name": safe_name,
+            "role": safe_role,
+            "class_name": safe_class
         }
 
 
 def authenticate_user(email: str, password: str) -> Optional[Dict[str, Any]]:
-    user = get_user_by_email(email)
+    user = get_user_by_email(email.strip())
     if not user:
         return None
-    if user["password_hash"] != hash_password(password):
+    if not verify_password(password, user["password_hash"]):
         return None
     return {
         "id": user["id"],
@@ -255,22 +247,29 @@ def get_all_absences(class_name: Optional[str] = None, student_name: Optional[st
 
 
 def add_absence(student_name: str, reason: str, dates: str, has_certificate: bool, class_name: str = "9-А", certificate_url: str = "") -> Dict[str, Any]:
+    safe_name = sanitize_text(student_name, max_len=100)
+    safe_reason = sanitize_text(reason, max_len=300)
+    safe_dates = sanitize_text(dates, max_len=50)
+    safe_class = sanitize_text(class_name, max_len=20)
+    safe_cert_url = sanitize_text(certificate_url, max_len=300)
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.execute(
             """INSERT INTO absences 
                (student_name, reason, dates, has_certificate, class_name, certificate_url, status) 
                VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
-            (student_name, reason, dates, 1 if has_certificate else 0, class_name, certificate_url)
+            (safe_name, safe_reason, safe_dates, 1 if has_certificate else 0, safe_class, safe_cert_url)
         )
         conn.commit()
         return {"id": cursor.lastrowid, "status": "ok"}
 
 
 def update_absence_status(absence_id: int, status: str, rejection_reason: str = ""):
+    safe_status = status if status in ("approved", "rejected", "pending") else "pending"
+    safe_rejection = sanitize_text(rejection_reason, max_len=300)
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             "UPDATE absences SET status = ?, rejection_reason = ? WHERE id = ?",
-            (status, rejection_reason, absence_id)
+            (safe_status, safe_rejection, absence_id)
         )
         conn.commit()
 
@@ -311,12 +310,16 @@ def get_club_applications(club_id: Optional[int] = None, student_name: Optional[
 
 
 def add_club_application(club_id: int, student_name: str, class_name: str, parent_name: str, parent_phone: str) -> Dict[str, Any]:
+    safe_student = sanitize_text(student_name, max_len=100)
+    safe_class = sanitize_text(class_name, max_len=20)
+    safe_parent = sanitize_text(parent_name, max_len=100)
+    safe_phone = sanitize_text(parent_phone, max_len=30)
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.execute(
             """INSERT INTO club_applications 
                (club_id, student_name, class_name, parent_name, parent_phone, status) 
                VALUES (?, ?, ?, ?, ?, 'pending')""",
-            (club_id, student_name, class_name, parent_name, parent_phone)
+            (club_id, safe_student, safe_class, safe_parent, safe_phone)
         )
         conn.execute("UPDATE clubs SET taken_slots = taken_slots + 1 WHERE id = ?", (club_id,))
         conn.commit()
@@ -324,20 +327,27 @@ def add_club_application(club_id: int, student_name: str, class_name: str, paren
 
 
 def update_club_application_status(app_id: int, status: str):
+    safe_status = status if status in ("approved", "rejected", "pending") else "pending"
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("UPDATE club_applications SET status = ? WHERE id = ?", (status, app_id))
+        conn.execute("UPDATE club_applications SET status = ? WHERE id = ?", (safe_status, app_id))
         conn.commit()
 
 
 def add_club(title: str, description: str, teacher_name: str, schedule: str, room: str, max_slots: int = 15) -> Dict[str, Any]:
+    safe_title = sanitize_text(title, max_len=120)
+    safe_desc = sanitize_text(description, max_len=500)
+    safe_teacher = sanitize_text(teacher_name, max_len=100)
+    safe_sch = sanitize_text(schedule, max_len=100)
+    safe_room = sanitize_text(room, max_len=50)
+    safe_slots = max(1, min(max_slots, 100))
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.execute(
             """INSERT INTO clubs (title, description, teacher_name, schedule, room, max_slots, taken_slots)
                VALUES (?, ?, ?, ?, ?, ?, 0)""",
-            (title, description, teacher_name, schedule, room, max_slots)
+            (safe_title, safe_desc, safe_teacher, safe_sch, safe_room, safe_slots)
         )
         conn.commit()
-        return {"id": cursor.lastrowid, "title": title}
+        return {"id": cursor.lastrowid, "title": safe_title}
 
 
 def delete_club_application(app_id: int) -> bool:

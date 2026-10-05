@@ -183,8 +183,8 @@ export default function TeacherDashboard({
 
   const myClub = clubs.find((c) =>
     user.full_name.includes('Смирнова') ? c.title.includes('программирование') :
-    user.full_name.includes('Васильев') ? c.title.includes('Робототехника') :
-    c.teacher_name.includes(user.full_name.split(' ')[0])
+      user.full_name.includes('Васильев') ? c.title.includes('Робототехника') :
+        c.teacher_name.includes(user.full_name.split(' ')[0])
   ) || clubs[0];
 
   const myClubApps = applications.filter((a) => myClub && a.club_id === myClub.id);
@@ -281,22 +281,20 @@ export default function TeacherDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('absences')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${
-            activeTab === 'absences'
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors shrink-0 ${activeTab === 'absences'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           Справки и заявления ({absences.length})
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('clubs')}
-          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-2 shrink-0 ${
-            activeTab === 'clubs'
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 -mb-[2px] transition-colors inline-flex items-center gap-2 shrink-0 ${activeTab === 'clubs'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           <span>Внеурочная деятельность и кружки</span>
           {myClubPendingCount > 0 && (
@@ -324,11 +322,10 @@ export default function TeacherDashboard({
                   key={f.k}
                   type="button"
                   onClick={() => setFilter(f.k)}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors shrink-0 ${
-                    filter === f.k
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors shrink-0 ${filter === f.k
                       ? 'bg-blue-600 text-white font-semibold'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-                  }`}
+                    }`}
                 >
                   {f.l}
                 </button>
@@ -533,22 +530,20 @@ export default function TeacherDashboard({
             <button
               type="button"
               onClick={() => setClubSubTab('class_overview')}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
-                clubSubTab === 'class_overview'
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${clubSubTab === 'class_overview'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
+                }`}
             >
               📊 Занятость класса {user.class_name} (Отчёт завучу)
             </button>
             <button
               type="button"
               onClick={() => setClubSubTab('my_club')}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all inline-flex items-center gap-1.5 ${
-                clubSubTab === 'my_club'
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all inline-flex items-center gap-1.5 ${clubSubTab === 'my_club'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <span>🎓 Моя секция: {myClub?.title || 'Руководство'}</span>
               {myClubPendingCount > 0 && (
@@ -560,11 +555,10 @@ export default function TeacherDashboard({
             <button
               type="button"
               onClick={() => setClubSubTab('catalog')}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
-                clubSubTab === 'catalog'
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${clubSubTab === 'catalog'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
+                }`}
             >
               🏫 Каталог всех секций школы
             </button>

@@ -63,7 +63,7 @@ export default function App(): React.JSX.Element {
             );
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     fetchNotifications();
@@ -79,6 +79,7 @@ export default function App(): React.JSX.Element {
 
   const handleLogout = (): void => {
     localStorage.removeItem('sferum_user');
+    localStorage.removeItem('sferum_token');
     setCurrentUser(null);
     showToast('Вы вышли из системы', 'info');
   };
@@ -131,29 +132,29 @@ export default function App(): React.JSX.Element {
 
   const headerNotifications: NotificationItem[] = isTeacher
     ? [
-        ...pendingAbsences.map((a) => ({
-          title: `Справка: ${a.student_name}`,
-          desc: a.reason,
-          time: a.dates,
-        })),
-        ...pendingApps.map((a) => ({
-          title: `Заявка в кружок: ${a.student_name}`,
-          desc: a.class_name,
-          time: 'Новое',
-        })),
-      ]
+      ...pendingAbsences.map((a) => ({
+        title: `Справка: ${a.student_name}`,
+        desc: a.reason,
+        time: a.dates,
+      })),
+      ...pendingApps.map((a) => ({
+        title: `Заявка в кружок: ${a.student_name}`,
+        desc: a.class_name,
+        time: 'Новое',
+      })),
+    ]
     : [
-        ...studentApprovedAbs.map((a) => ({
-          title: 'Справка одобрена учителем',
-          desc: a.reason,
-          time: a.dates,
-        })),
-        ...studentApprovedApps.map((a) => ({
-          title: 'Зачисление в секцию подтверждено',
-          desc: a.club_title || 'Кружок',
-          time: 'Зачислен',
-        })),
-      ];
+      ...studentApprovedAbs.map((a) => ({
+        title: 'Справка одобрена учителем',
+        desc: a.reason,
+        time: a.dates,
+      })),
+      ...studentApprovedApps.map((a) => ({
+        title: 'Зачисление в секцию подтверждено',
+        desc: a.club_title || 'Кружок',
+        time: 'Зачислен',
+      })),
+    ];
 
   const [seenNotificationsCount, setSeenNotificationsCount] = useState<number>(0);
 
