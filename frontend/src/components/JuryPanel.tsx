@@ -16,6 +16,9 @@ import {
   Pause,
   Layers,
   CheckCircle2,
+  FileText,
+  QrCode,
+  ExternalLink,
 } from 'lucide-react';
 import type { ToastType, User } from '../types';
 
@@ -80,6 +83,7 @@ export default function JuryPanel({
   const [clubSchedule, setClubSchedule] = useState<string>('');
   const [clubRoom, setClubRoom] = useState<string>('');
   const [clubSlots, setClubSlots] = useState<number>(15);
+
 
   const handleSimulateAbsence = async (): Promise<void> => {
     setLoading(true);
@@ -154,6 +158,15 @@ export default function JuryPanel({
     setLoading(true);
     try {
       await resetDatabase();
+      try {
+        Object.keys(localStorage).forEach((k) => {
+          if (k.startsWith('sferum_seen_notifications_')) {
+            localStorage.removeItem(k);
+          }
+        });
+      } catch {
+        // ignore
+      }
       showToast('База данных успешно возвращена в исходное состояние', 'success');
       if (onDataChanged) onDataChanged();
     } catch (err) {
@@ -184,10 +197,11 @@ export default function JuryPanel({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in"
           onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border-t sm:border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] animate-slide-up sm:animate-scale-in">
+            <div className="w-12 h-1.5 bg-slate-400 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
             <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
               <div className="flex items-center gap-2 sm:gap-2.5">
                 <div className="p-1.5 rounded-lg bg-amber-400/20 text-amber-400">
@@ -280,6 +294,53 @@ export default function JuryPanel({
                       Смоделировать сейчас ↗
                     </span>
                   </button>
+                </div>
+              </div>
+
+
+              {/* Официальные документы: PDF + ЭЦП + QR */}
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  Генерация официальных документов (PDF + ЭЦП + QR)
+                </span>
+                <p className="text-[11px] text-slate-500">
+                  Серверный рендеринг бланка 095/у с печатью медучреждения, штампом УКЭП и QR-кодом подтверждения подлинности в реестре:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <a
+                    href="/api/absences/1/pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100/60 transition-all flex items-center justify-between group"
+                  >
+                    <div>
+                      <strong className="text-xs font-bold text-emerald-950 block">
+                        📄 Эталонный PDF (форма 095/у)
+                      </strong>
+                      <span className="text-[11px] text-slate-500">
+                        С синей печатью и штампом ЭЦП
+                      </span>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-emerald-700 group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+
+                  <a
+                    href="/api/verify-doc/1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-xl border border-sky-200 bg-sky-50/50 hover:bg-sky-100/60 transition-all flex items-center justify-between group"
+                  >
+                    <div>
+                      <strong className="text-xs font-bold text-sky-950 block">
+                        🔍 Верификация в реестре (QR)
+                      </strong>
+                      <span className="text-[11px] text-slate-500">
+                        Страница проверки подлинности
+                      </span>
+                    </div>
+                    <QrCode className="w-4 h-4 text-sky-700 group-hover:scale-110 transition-transform" />
+                  </a>
                 </div>
               </div>
 

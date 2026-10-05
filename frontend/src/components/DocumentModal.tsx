@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { X, ShieldCheck, FileText, CheckCircle } from 'lucide-react';
+import { X, ShieldCheck, FileText, CheckCircle, Download, QrCode } from 'lucide-react';
+import { getAbsencePdfUrl, getDocVerificationUrl } from '../api';
 import type { Absence } from '../types';
 
 interface DocumentModalProps {
@@ -49,10 +50,11 @@ export default function DocumentModal({ absence, onClose }: DocumentModalProps) 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
       onClick={(e: React.MouseEvent<HTMLDivElement>) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border-t sm:border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] animate-slide-up sm:animate-scale-in">
+        <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
           <div>
             <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
@@ -266,11 +268,32 @@ export default function DocumentModal({ absence, onClose }: DocumentModalProps) 
           )}
         </div>
 
-        <div className="px-6 py-3 border-t border-slate-200 bg-white flex justify-end">
+        <div className="px-4 sm:px-6 py-3 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={getAbsencePdfUrl(absence.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
+            >
+              <Download className="w-4 h-4" />
+              <span>Скачать PDF с печатью и ЭЦП</span>
+            </a>
+            <a
+              href={getDocVerificationUrl(absence.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+            >
+              <QrCode className="w-4 h-4 text-slate-500" />
+              <span className="hidden sm:inline">Проверить QR-код</span>
+              <span className="sm:hidden">QR</span>
+            </a>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors text-center"
           >
             Закрыть
           </button>

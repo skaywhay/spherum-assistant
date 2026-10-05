@@ -60,11 +60,13 @@ export interface ToastMessage {
 }
 
 export interface NotificationItem {
+  id?: string;
   title: string;
   desc: string;
   time: string;
   type?: string;
   targetTab?: string;
+  read?: boolean;
 }
 
 export interface StudentRosterItem {
@@ -132,3 +134,15 @@ export interface SimulatedClubAppResponse {
     status: ClubApplicationStatus;
   };
 }
+
+
+export interface VKMiniAppAuthPayload {
+  vk_user_id: number;
+  first_name?: string;
+  last_name?: string;
+  role?: UserRole;
+  class_name?: string;
+  sign?: string;
+  launch_params?: string;
+}
+

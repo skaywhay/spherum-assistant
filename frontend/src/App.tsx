@@ -130,43 +130,108 @@ export default function App(): React.JSX.Element {
     ? applications.filter((a) => a.status === 'approved')
     : [];
 
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setSeenIds(new Set());
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`sferum_seen_notifications_${currentUser.id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setSeenIds(new Set(parsed));
+          return;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    setSeenIds(new Set());
+  }, [currentUser?.id]);
+
+  const markNotificationsSeen = useCallback((idsToMark: string[]): void => {
+    if (!currentUser?.id || idsToMark.length === 0) return;
+    setSeenIds((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const id of idsToMark) {
+        if (!next.has(id)) {
+          next.add(id);
+          changed = true;
+        }
+      }
+      if (changed) {
+        try {
+          localStorage.setItem(
+            `sferum_seen_notifications_${currentUser.id}`,
+            JSON.stringify(Array.from(next))
+          );
+        } catch {
+          // ignore
+        }
+        return next;
+      }
+      return prev;
+    });
+  }, [currentUser?.id]);
+
   const headerNotifications: NotificationItem[] = isTeacher
     ? [
-      ...pendingAbsences.map((a) => ({
-        title: `Справка: ${a.student_name}`,
-        desc: a.reason,
-        time: a.dates,
-      })),
-      ...pendingApps.map((a) => ({
-        title: `Заявка в кружок: ${a.student_name}`,
-        desc: a.class_name,
-        time: 'Новое',
-      })),
+      ...pendingAbsences.map((a) => {
+        const id = `abs_${a.id}_${a.status}`;
+        return {
+          id,
+          title: `Справка: ${a.student_name}`,
+          desc: a.reason,
+          time: a.dates,
+          read: seenIds.has(id),
+        };
+      }),
+      ...pendingApps.map((a) => {
+        const id = `app_${a.id}_${a.status}`;
+        return {
+          id,
+          title: `Заявка в кружок: ${a.student_name}`,
+          desc: a.class_name,
+          time: 'Новое',
+          read: seenIds.has(id),
+        };
+      }),
     ]
     : [
-      ...studentApprovedAbs.map((a) => ({
-        title: 'Справка одобрена учителем',
-        desc: a.reason,
-        time: a.dates,
-      })),
-      ...studentApprovedApps.map((a) => ({
-        title: 'Зачисление в секцию подтверждено',
-        desc: a.club_title || 'Кружок',
-        time: 'Зачислен',
-      })),
+      ...studentApprovedAbs.map((a) => {
+        const id = `abs_${a.id}_${a.status}`;
+        return {
+          id,
+          title: 'Справка одобрена учителем',
+          desc: a.reason,
+          time: a.dates,
+          read: seenIds.has(id),
+        };
+      }),
+      ...studentApprovedApps.map((a) => {
+        const id = `app_${a.id}_${a.status}`;
+        return {
+          id,
+          title: 'Зачисление в секцию подтверждено',
+          desc: a.club_title || 'Кружок',
+          time: 'Зачислен',
+          read: seenIds.has(id),
+        };
+      }),
     ];
 
-  const [seenNotificationsCount, setSeenNotificationsCount] = useState<number>(0);
-
   const handleMarkAllRead = useCallback((): void => {
-    setSeenNotificationsCount(headerNotifications.length);
-  }, [headerNotifications.length]);
+    const allIds = headerNotifications
+      .map((n) => n.id)
+      .filter((id): id is string => Boolean(id));
+    markNotificationsSeen(allIds);
+  }, [headerNotifications, markNotificationsSeen]);
 
-  const rawCount = isTeacher
-    ? pendingAbsences.length + pendingApps.length
-    : studentApprovedAbs.length + studentApprovedApps.length;
-
-  const unreadCount = Math.max(0, rawCount - seenNotificationsCount);
+  const unreadCount = headerNotifications.filter((n) => !n.id || !seenIds.has(n.id)).length;
 
   return (
     <div className="min-h-screen bg-[#f0f4f9] text-slate-800 flex flex-col font-sans relative">
@@ -207,6 +272,8 @@ export default function App(): React.JSX.Element {
           user={currentUser}
           absences={absences}
           applications={applications}
+          seenIds={seenIds}
+          onMarkSeen={markNotificationsSeen}
           onDismiss={handleMarkAllRead}
         />
       )}

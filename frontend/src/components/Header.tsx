@@ -25,7 +25,7 @@ export default function Header({
   const handleToggleBell = () => {
     const next = !showBellDropdown;
     setShowBellDropdown(next);
-    if (next && unreadCount > 0 && onMarkAllRead) {
+    if (next && onMarkAllRead) {
       onMarkAllRead();
     }
   };
@@ -118,16 +118,25 @@ export default function Header({
                     ) : (
                       notifications.map((n, idx) => (
                         <div
-                          key={idx}
+                          key={n.id || idx}
                           onClick={() => {
                             setShowBellDropdown(false);
                             if (onNotificationClick) onNotificationClick(n);
                           }}
-                          className="p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer transition-colors"
+                          className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                            n.read === false
+                              ? 'bg-blue-50/60 hover:bg-blue-50/90 border-blue-200/80'
+                              : 'hover:bg-slate-50 border-slate-100'
+                          }`}
                         >
                           <div className="flex items-start justify-between gap-1">
-                            <strong className="text-slate-900 font-semibold block">{n.title}</strong>
-                            <span className="text-[10px] text-slate-400 font-mono">{n.time}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {n.read === false && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                              )}
+                              <strong className="text-slate-900 font-semibold block truncate">{n.title}</strong>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-2">{n.time}</span>
                           </div>
                           <p className="text-slate-500 text-[11px] mt-0.5 line-clamp-1">{n.desc}</p>
                         </div>

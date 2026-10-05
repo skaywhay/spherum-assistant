@@ -6,6 +6,7 @@ import {
   getClubApplications,
   applyClub,
   cancelClubApplication,
+  getAbsencePdfUrl,
 } from '../api';
 import StatusBadge from '../components/StatusBadge';
 import DocumentModal from '../components/DocumentModal';
@@ -21,6 +22,7 @@ import {
   MapPin,
   User as UserIcon,
   Trash2,
+  Download,
 } from 'lucide-react';
 import type { Absence, Club, ClubApplication, ToastType, User } from '../types';
 
@@ -650,18 +652,31 @@ export default function StudentDashboard({
 
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                     <span className="text-xs text-slate-500">Класс: {item.class_name}</span>
-                    {item.has_certificate ? (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDoc(item)}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Смотреть скан ↗</span>
-                      </button>
-                    ) : (
-                      <span className="text-xs text-slate-400">Без файла</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {item.has_certificate ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDoc(item)}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Скан ↗</span>
+                          </button>
+                          <a
+                            href={getAbsencePdfUrl(item.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition-colors"
+                            title="Скачать официальный PDF с печатью и ЭЦП"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </>
+                      ) : (
+                        <span className="text-xs text-slate-400">Без файла</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
@@ -670,7 +685,7 @@ export default function StudentDashboard({
 
           {/* Десктопная таблица */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full min-w-[560px] text-left text-sm border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Причина отсутствия</th>
@@ -706,14 +721,25 @@ export default function StudentDashboard({
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         {item.has_certificate ? (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedDoc(item)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            <span>Смотреть скан ↗</span>
-                          </button>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDoc(item)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Смотреть скан ↗</span>
+                            </button>
+                            <a
+                              href={getAbsencePdfUrl(item.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition-colors"
+                              title="Скачать официальный PDF с печатью и ЭЦП"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
                         ) : (
                           <span className="text-xs text-slate-400">Без файла</span>
                         )}

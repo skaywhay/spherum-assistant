@@ -58,10 +58,11 @@ export default function RosterModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border-t sm:border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh] animate-slide-up sm:animate-scale-in">
+        <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
           <div>
             <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
@@ -82,7 +83,8 @@ export default function RosterModal({
         </div>
 
         <div className="overflow-y-auto p-0 flex-1">
-          <table className="w-full text-left text-sm border-collapse">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full min-w-[500px] sm:min-w-full text-left text-sm border-collapse">
             <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
                 <th className="py-2.5 sm:py-3 px-2 sm:px-4 w-10 sm:w-12 text-center">№</th>
@@ -145,6 +147,7 @@ export default function RosterModal({
               })}
             </tbody>
           </table>
+          </div>
         </div>
 
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">

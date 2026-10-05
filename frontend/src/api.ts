@@ -11,6 +11,7 @@ import type {
   RegisterPayload,
   AuthResponse,
   SimulatedClubAppResponse,
+  VKMiniAppAuthPayload,
 } from './types';
 
 const API_BASE = '/api';
@@ -172,3 +173,27 @@ export async function resetDatabase(): Promise<{ status: string; message: string
   if (!res.ok) throw new Error('Ошибка сброса данных');
   return res.json();
 }
+
+export function getAbsencePdfUrl(id: number): string {
+  return `${API_BASE}/absences/${id}/pdf`;
+}
+
+export function getDocVerificationUrl(id: number): string {
+  return `${API_BASE}/verify-doc/${id}`;
+}
+
+export async function vkMiniAppLogin(payload: VKMiniAppAuthPayload): Promise<User> {
+  const res = await fetch(`${API_BASE}/auth/vk-mini-app`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data: AuthResponse & { detail?: string } = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Ошибка авторизации через VK');
+  if (data.token) {
+    localStorage.setItem('sferum_token', data.token);
+  }
+  return data.user;
+}
+
+

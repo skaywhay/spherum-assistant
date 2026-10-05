@@ -1,6 +1,7 @@
-import React, { useState, type FormEvent } from 'react';
-import { login, register } from '../api';
-import { UserCheck, ArrowRight, Info, X } from 'lucide-react';
+import React, { useState, useEffect, type FormEvent } from 'react';
+import { login, register, vkMiniAppLogin } from '../api';
+import { parseVKLaunchParams, getVKUserInfo } from '../vkBridge';
+import { UserCheck, ArrowRight, Info, X, Sparkles } from 'lucide-react';
 import type { ToastType, User, UserRole } from '../types';
 
 interface DemoAccountItem {
@@ -57,6 +58,47 @@ export default function AuthPage({ onLoginSuccess, showToast }: AuthPageProps): 
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [vkNoticeOpen, setVkNoticeOpen] = useState<boolean>(false);
+
+  const [vkParams] = useState(() => parseVKLaunchParams());
+  const [vkDetectedUser, setVkDetectedUser] = useState<{ id: number; name: string } | null>(null);
+
+  useEffect(() => {
+    if (vkParams?.vk_user_id) {
+      getVKUserInfo().then((info) => {
+        if (info) {
+          setVkDetectedUser({ id: info.id, name: `${info.first_name} ${info.last_name}` });
+        } else {
+          setVkDetectedUser({ id: vkParams.vk_user_id!, name: `Пользователь VK #${vkParams.vk_user_id}` });
+        }
+      });
+    }
+  }, [vkParams]);
+
+  const handleVkMiniAppDirectLogin = async (role: UserRole = 'student'): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const vkId = vkParams?.vk_user_id || 77889911;
+      const firstName = vkDetectedUser?.name ? vkDetectedUser.name.split(' ')[0] : 'Артём';
+      const lastName = vkDetectedUser?.name ? (vkDetectedUser.name.split(' ')[1] || 'Кузнецов') : 'Кузнецов';
+      const user = await vkMiniAppLogin({
+        vk_user_id: vkId,
+        first_name: firstName,
+        last_name: lastName,
+        role: role,
+        class_name: '9-А',
+        sign: (vkParams?.sign as string) || undefined,
+        launch_params: window.location.search || undefined,
+      });
+      onLoginSuccess(user);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка входа через VK Mini App';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+      setVkNoticeOpen(false);
+    }
+  };
 
   const [regName, setRegName] = useState<string>('');
   const [regRole, setRegRole] = useState<UserRole>('teacher');
@@ -120,6 +162,10 @@ export default function AuthPage({ onLoginSuccess, showToast }: AuthPageProps): 
   };
 
   const handleVkClick = (): void => {
+    if (vkParams?.vk_user_id) {
+      handleVkMiniAppDirectLogin('student');
+      return;
+    }
     setVkNoticeOpen(true);
     if (showToast) {
       showToast('Тут бы могла быть авторизация через Сферум или VK ID', 'info');
@@ -209,6 +255,26 @@ export default function AuthPage({ onLoginSuccess, showToast }: AuthPageProps): 
           {error && (
             <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
               {error}
+            </div>
+          )}
+
+          {vkParams?.vk_user_id && (
+            <div className="mb-4 p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-950 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#0077FF] shrink-0" />
+                <div>
+                  <strong>Запуск в VK Mini App!</strong>
+                  <div className="text-[11px] text-slate-600">ID профиля: {vkParams.vk_user_id}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleVkMiniAppDirectLogin('student')}
+                disabled={loading}
+                className="w-full py-2 px-3 rounded-lg bg-[#0077FF] hover:bg-[#0066DD] text-white font-semibold transition-colors shadow-xs text-center"
+              >
+                Войти в 1 клик через аккаунт VK
+              </button>
             </div>
           )}
 
@@ -385,13 +451,14 @@ export default function AuthPage({ onLoginSuccess, showToast }: AuthPageProps): 
 
       {vkNoticeOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
           onClick={() => setVkNoticeOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden p-6 animate-scale-in"
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border-t sm:border border-slate-200 w-full max-w-md overflow-hidden p-6 animate-slide-up sm:animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto -mt-2 mb-4 sm:hidden shrink-0" />
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="w-12 h-12 rounded-2xl bg-[#0077FF] text-white flex items-center justify-center shrink-0 shadow-sm">
                 <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24">
@@ -423,15 +490,23 @@ export default function AuthPage({ onLoginSuccess, showToast }: AuthPageProps): 
                 Для боевого подключения VK ID требуется официальная регистрация юр. лица или ИП, договор с VK и верификация приложения модераторами.
               </p>
               <p className="text-slate-600 leading-relaxed">
-                Для тестирования функционала воспользуйтесь <strong>карточками быстрого демо-входа слева</strong> или формой быстрой регистрации.
+                Для тестирования функционала воспользуйтесь <strong>карточками быстрого демо-входа слева</strong> или кнопкой эмуляции входа ниже.
               </p>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-5 space-y-2">
+              <button
+                type="button"
+                onClick={() => handleVkMiniAppDirectLogin('student')}
+                disabled={loading}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-[#0077FF] hover:bg-[#0066DD] transition-colors shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <span>🚀 Войти в режиме VK Mini App (ученик Сферум)</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setVkNoticeOpen(false)}
-                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
+                className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors text-center"
               >
                 Понятно
               </button>

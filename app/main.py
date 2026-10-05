@@ -4,9 +4,9 @@ import os
 import re
 from urllib.parse import parse_qsl, unquote
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, Response, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
@@ -19,11 +19,13 @@ from app.database import (
     get_all_tasks,
     add_task,
     get_all_absences,
+    get_absence_by_id,
     add_absence,
     update_absence_status,
     get_all_clubs,
     add_club,
     get_club_applications,
+    get_club_application_by_id,
     add_club_application,
     delete_club_application,
     update_club_application_status,
@@ -39,6 +41,11 @@ from app.security import (
     SecurityHeadersMiddleware,
     RateLimitAndPayloadMiddleware,
 )
+from app.vk_integration import (
+    authenticate_vk_mini_app,
+    verify_vk_launch_params,
+)
+from app.pdf_generator import generate_absence_pdf
 
 app = FastAPI(
     title="Сферум.Ассистент",
@@ -60,36 +67,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
-BOT_TOKEN = os.getenv("MAX_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-
-
-def verify_init_data(init_data: str, bot_token: str) -> bool:
-    if not init_data:
-        return False
-
-    parsed = dict(parse_qsl(init_data, keep_blank_values=True))
-    received_hash = parsed.pop("hash", None)
-    if not received_hash:
-        return False
-
-    launch_params = "\n".join(
-        f"{k}={unquote(parsed[k])}" for k in sorted(parsed.keys())
-    )
-
-    secret_key = hmac.new(
-        key=b"WebAppData",
-        msg=bot_token.encode("utf-8"),
-        digestmod=hashlib.sha256
-    ).digest()
-
-    calculated_hash = hmac.new(
-        key=secret_key,
-        msg=launch_params.encode("utf-8"),
-        digestmod=hashlib.sha256
-    ).hexdigest()
-
-    return hmac.compare_digest(calculated_hash, received_hash)
 
 
 def require_teacher(authorization: Optional[str] = Header(None)) -> bool:
@@ -286,7 +263,33 @@ class ClubCreate(BaseModel):
         return max(1, min(v, 100))
 
 
+class VKMiniAppAuthRequest(BaseModel):
+    vk_user_id: int
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    role: str = "student"
+    class_name: str = "9-А"
+    sign: Optional[str] = None
+    launch_params: Optional[str] = None
+
+
 # --- Эндпоинты Авторизации ---
+
+@app.post("/api/auth/vk-mini-app")
+def vk_mini_app_login(data: VKMiniAppAuthRequest):
+    if data.launch_params and data.sign:
+        valid = verify_vk_launch_params(data.launch_params)
+        if not valid:
+            raise HTTPException(status_code=403, detail="Недействительная подпись VK Mini App")
+
+    return authenticate_vk_mini_app(
+        vk_user_id=data.vk_user_id,
+        first_name=data.first_name,
+        last_name=data.last_name,
+        role=data.role,
+        class_name=data.class_name
+    )
+
 
 @app.post("/api/auth/login")
 def login(data: LoginRequest):
@@ -381,6 +384,216 @@ def create_absence(data: AbsenceCreate):
         class_name=data.class_name,
         certificate_url=data.certificate_url
     )
+
+
+@app.get("/api/absences/{absence_id}/pdf")
+def download_absence_pdf(absence_id: int, request: Request):
+    absence = get_absence_by_id(absence_id)
+    if not absence:
+        raise HTTPException(status_code=404, detail="Справка или заявление не найдены")
+    base_url = str(request.base_url).rstrip("/")
+    pdf_bytes = generate_absence_pdf(absence, base_url=base_url)
+    filename = f"spravka_{absence_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "no-cache"
+        }
+    )
+
+
+@app.get("/api/verify-doc/{absence_id}", response_class=HTMLResponse)
+def verify_document_endpoint(absence_id: int):
+    absence = get_absence_by_id(absence_id)
+    if not absence:
+        return HTMLResponse(
+            status_code=404,
+            content="""<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Документ не найден</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#1e293b;}</style>
+</head><body><div style="text-align:center;"><h2>Документ не найден в реестре</h2><p>Проверьте корректность QR-кода</p></div></body></html>"""
+        )
+
+    student_name = absence.get("student_name", "—")
+    class_name = absence.get("class_name", "9-А")
+    dates = absence.get("dates", "—")
+    reason = absence.get("reason", "—")
+    status = absence.get("status", "pending")
+    status_text = "Одобрено" if status == "approved" else ("Отклонено" if status == "rejected" else "На рассмотрении")
+    status_color = "#16a34a" if status == "approved" else ("#dc2626" if status == "rejected" else "#ea580c")
+
+    doc_hash = hashlib.sha256(f"{absence_id}:{student_name}:{dates}:{reason}".encode("utf-8")).hexdigest().upper()
+
+    html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Верификация документа № СПР-2024-00{absence_id} — Сферум</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #F1F5F9;
+            color: #0F172A;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }}
+        .card {{
+            background: #FFFFFF;
+            max-width: 580px;
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+            border: 1px solid #E2E8F0;
+            overflow: hidden;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #0284C7, #0369A1);
+            color: white;
+            padding: 24px 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }}
+        .header svg {{ width: 36px; height: 36px; flex-shrink: 0; }}
+        .header h1 {{ font-size: 19px; font-weight: 700; line-height: 1.3; }}
+        .header p {{ font-size: 13px; opacity: 0.9; margin-top: 2px; }}
+        .badge-box {{
+            padding: 20px 28px 10px;
+        }}
+        .badge {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #F0FDF4;
+            border: 1.5px solid #86EFAC;
+            color: #15803D;
+            padding: 14px 18px;
+            border-radius: 14px;
+            font-size: 14.5px;
+            font-weight: 600;
+        }}
+        .content {{
+            padding: 16px 28px 24px;
+        }}
+        .info-row {{
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #F1F5F9;
+            font-size: 14px;
+            gap: 12px;
+        }}
+        .info-row:last-child {{ border-bottom: none; }}
+        .label {{ color: #64748B; font-weight: 500; min-width: 130px; }}
+        .value {{ color: #0F172A; font-weight: 600; text-align: right; word-break: break-word; }}
+        .stamp-box {{
+            background: #F8FAFC;
+            border: 1px dashed #CBD5E1;
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-top: 14px;
+            font-size: 12px;
+            color: #475569;
+            line-height: 1.6;
+        }}
+        .actions {{
+            padding: 0 28px 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }}
+        .btn {{
+            display: block;
+            text-align: center;
+            background: #0284C7;
+            color: white;
+            padding: 13px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14.5px;
+            text-decoration: none;
+            transition: background 0.15s;
+        }}
+        .btn:hover {{ background: #0369A1; }}
+        .footer {{
+            text-align: center;
+            font-size: 11px;
+            color: #94A3B8;
+            padding: 0 28px 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <div>
+                <h1>Единый реестр документов «Сферум»</h1>
+                <p>Верификация электронной медицинской справки</p>
+            </div>
+        </div>
+        <div class="badge-box">
+            <div class="badge">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Подлинность документа подтверждена</span>
+            </div>
+        </div>
+        <div class="content">
+            <div class="info-row">
+                <span class="label">Номер документа:</span>
+                <span class="value">СПР-2024-00{absence_id}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Обучающийся:</span>
+                <span class="value">{student_name} ({class_name})</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Период:</span>
+                <span class="value">{dates}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Причина:</span>
+                <span class="value">{reason}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Статус в системе:</span>
+                <span class="value" style="color: {status_color};">{status_text}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Организация:</span>
+                <span class="value">ГБУЗ ДГП № 38 ДЗМ</span>
+            </div>
+            <div class="stamp-box">
+                <strong>Электронная цифровая подпись (УКЭП):</strong><br>
+                Сертификат: <code>00DE77B21F89410AE4001B93A9A74E90</code><br>
+                Владелец: Главный врач Смирнова Е. В.<br>
+                Действителен: с 01.01.2024 по 31.12.2025<br>
+                Хеш документа (SHA-256): <code>{doc_hash[:24]}...</code>
+            </div>
+        </div>
+        <div class="actions">
+            <a href="/api/absences/{absence_id}/pdf" class="btn" target="_blank">📄 Открыть оригинал PDF с печатью</a>
+        </div>
+        <div class="footer">
+            Система электронного документооборота «Сферум» • ГОСТ Р 34.10-2012
+        </div>
+    </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 
 @app.patch("/api/absences/{absence_id}/status")

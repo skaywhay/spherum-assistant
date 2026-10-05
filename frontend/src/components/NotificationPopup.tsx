@@ -6,6 +6,8 @@ interface NotificationPopupProps {
   user: User | null;
   absences?: Absence[];
   applications?: ClubApplication[];
+  seenIds?: Set<string>;
+  onMarkSeen?: (ids: string[]) => void;
   onAction?: (tab: string) => void;
   onDismiss?: () => void;
 }
@@ -14,6 +16,8 @@ export default function NotificationPopup({
   user,
   absences = [],
   applications = [],
+  seenIds = new Set(),
+  onMarkSeen,
   onAction,
   onDismiss,
 }: NotificationPopupProps): React.JSX.Element | null {
@@ -23,23 +27,23 @@ export default function NotificationPopup({
   const isTeacher = user?.role === 'teacher';
 
   const teacherPendingAbsences = isTeacher
-    ? absences.filter((a) => a.status === 'pending')
+    ? absences.filter((a) => a.status === 'pending' && !seenIds.has(`abs_${a.id}_${a.status}`))
     : [];
 
   const teacherPendingApps = isTeacher
-    ? applications.filter((a) => a.status === 'pending')
+    ? applications.filter((a) => a.status === 'pending' && !seenIds.has(`app_${a.id}_${a.status}`))
     : [];
 
   const studentApprovedAbsences = !isTeacher
-    ? absences.filter((a) => a.status === 'approved')
+    ? absences.filter((a) => a.status === 'approved' && !seenIds.has(`abs_${a.id}_${a.status}`))
     : [];
 
   const studentApprovedClubs = !isTeacher
-    ? applications.filter((a) => a.status === 'approved')
+    ? applications.filter((a) => a.status === 'approved' && !seenIds.has(`app_${a.id}_${a.status}`))
     : [];
 
   const studentPendingAbsences = !isTeacher
-    ? absences.filter((a) => a.status === 'pending')
+    ? absences.filter((a) => a.status === 'pending' && !seenIds.has(`abs_${a.id}_${a.status}`))
     : [];
 
   const totalTeacherItems = teacherPendingAbsences.length + teacherPendingApps.length;
@@ -57,11 +61,33 @@ export default function NotificationPopup({
       const timer = setTimeout(() => setIsOpen(true), 600);
       return () => clearTimeout(timer);
     }
+
+    if (totalTeacherItems === 0 && totalStudentItems === 0 && studentPendingAbsences.length === 0) {
+      setIsOpen(false);
+    }
   }, [user?.id, isTeacher, totalTeacherItems, totalStudentItems, studentPendingAbsences.length, hasDismissed]);
 
+  const getAllDisplayedIds = (): string[] => {
+    if (isTeacher) {
+      return [
+        ...teacherPendingAbsences.map((a) => `abs_${a.id}_${a.status}`),
+        ...teacherPendingApps.map((a) => `app_${a.id}_${a.status}`),
+      ];
+    }
+    return [
+      ...studentApprovedAbsences.map((a) => `abs_${a.id}_${a.status}`),
+      ...studentApprovedClubs.map((a) => `app_${a.id}_${a.status}`),
+      ...studentPendingAbsences.map((a) => `abs_${a.id}_${a.status}`),
+    ];
+  };
+
   const handleDismiss = (): void => {
+    const ids = getAllDisplayedIds();
     setIsOpen(false);
     setHasDismissed(true);
+    if (onMarkSeen && ids.length > 0) {
+      onMarkSeen(ids);
+    }
     if (onDismiss) onDismiss();
   };
 

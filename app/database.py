@@ -263,6 +263,13 @@ def add_absence(student_name: str, reason: str, dates: str, has_certificate: boo
         return {"id": cursor.lastrowid, "status": "ok"}
 
 
+def get_absence_by_id(absence_id: int) -> Optional[Dict[str, Any]]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM absences WHERE id = ?", (absence_id,)).fetchone()
+        return dict(row) if row else None
+
+
 def update_absence_status(absence_id: int, status: str, rejection_reason: str = ""):
     safe_status = status if status in ("approved", "rejected", "pending") else "pending"
     safe_rejection = sanitize_text(rejection_reason, max_len=300)
@@ -324,6 +331,18 @@ def add_club_application(club_id: int, student_name: str, class_name: str, paren
         conn.execute("UPDATE clubs SET taken_slots = taken_slots + 1 WHERE id = ?", (club_id,))
         conn.commit()
         return {"id": cursor.lastrowid, "status": "ok"}
+
+
+def get_club_application_by_id(app_id: int) -> Optional[Dict[str, Any]]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("""
+            SELECT ca.*, c.title as club_title, c.schedule as club_schedule, c.room as club_room 
+            FROM club_applications ca
+            JOIN clubs c ON ca.club_id = c.id
+            WHERE ca.id = ?
+        """, (app_id,)).fetchone()
+        return dict(row) if row else None
 
 
 def update_club_application_status(app_id: int, status: str):

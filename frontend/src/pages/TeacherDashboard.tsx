@@ -591,7 +591,7 @@ export default function TeacherDashboard({
 
               <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm border-collapse">
+                  <table className="w-full min-w-[560px] text-left text-sm border-collapse">
                     <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       <tr>
                         <th className="py-3 px-4 w-12 text-center">№</th>
