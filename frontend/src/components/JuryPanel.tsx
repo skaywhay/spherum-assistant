@@ -26,7 +26,6 @@ interface DemoUserItem {
   title: string;
   role: string;
   email: string;
-  pass: string;
 }
 
 const DEMO_USERS: DemoUserItem[] = [
@@ -34,31 +33,27 @@ const DEMO_USERS: DemoUserItem[] = [
     title: 'Смирнова Елена Викторовна',
     role: 'Классрук 9-А • Секция «Программирование»',
     email: 'teacher9a@sferum.ru',
-    pass: 'password123',
   },
   {
     title: 'Васильев Михаил Сергеевич',
     role: 'Классрук 10-Б • Секция «Робототехника и БПЛА»',
     email: 'teacher10b@sferum.ru',
-    pass: 'password123',
   },
   {
     title: 'Кузнецов Артём',
     role: 'Ученик 9-А класса',
     email: 'student9a@sferum.ru',
-    pass: 'password123',
   },
   {
     title: 'Морозова София',
     role: 'Ученица 10-Б класса',
     email: 'student10b@sferum.ru',
-    pass: 'password123',
   },
 ];
 
 interface JuryPanelProps {
   currentUser: User | null;
-  onSwitchUser: (email: string, pass: string) => void;
+  onSwitchUser: (email: string) => void;
   onDataChanged?: () => void;
   showToast: (msg: string, type?: ToastType) => void;
   autoSimulate: boolean;
@@ -357,7 +352,7 @@ export default function JuryPanel({
                         key={u.email}
                         type="button"
                         onClick={() => {
-                          onSwitchUser(u.email, u.pass);
+                          onSwitchUser(u.email);
                           setIsOpen(false);
                         }}
                         className={`text-left p-3 rounded-xl border text-xs transition-all ${

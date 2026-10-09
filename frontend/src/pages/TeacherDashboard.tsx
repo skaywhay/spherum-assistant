@@ -110,9 +110,9 @@ export default function TeacherDashboard({
       setAbsences(absData);
       setClubs(clubsData);
       setApplications(appsData);
-    } catch {
+    } catch (err) {
       if (!silent) {
-        showToast('Ошибка загрузки данных журнала', 'error');
+        showToast('Проверьте подключение к сети', 'error');
       }
     }
   }, [user.class_name, showToast]);
@@ -120,8 +120,9 @@ export default function TeacherDashboard({
   useEffect(() => {
     loadData();
     const interval = setInterval(() => {
+      if (document.hidden) return;
       loadData(true);
-    }, 3000);
+    }, 4000);
     return () => clearInterval(interval);
   }, [loadData, refreshTrigger]);
 
@@ -216,11 +217,11 @@ export default function TeacherDashboard({
             setActiveTab('absences');
             setFilter('pending');
           }}
-          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-amber-400 hover:shadow-md transition-all group shadow-xs"
+          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-amber-400 card-hover btn-press transition-all group shadow-xs animate-fade-in-up stagger-1"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <span>Справок на проверке</span>
-            <Clock className="w-4 h-4 text-amber-500" />
+            <Clock className="w-4 h-4 text-amber-500 transition-transform group-hover:rotate-12" />
           </div>
           <div className="text-3xl font-extrabold text-amber-600 mt-2">{pendingCount}</div>
           <div className="text-xs text-slate-500 mt-1">Ожидают решения классрука</div>
@@ -232,11 +233,11 @@ export default function TeacherDashboard({
             setActiveTab('absences');
             setFilter('approved');
           }}
-          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-emerald-400 hover:shadow-md transition-all group shadow-xs"
+          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-emerald-400 card-hover btn-press transition-all group shadow-xs animate-fade-in-up stagger-2"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <span>Принятые справки</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 transition-transform group-hover:scale-110" />
           </div>
           <div className="text-3xl font-extrabold text-emerald-600 mt-2">{approvedCount}</div>
           <div className="text-xs text-slate-500 mt-1">За текущую четверть</div>
@@ -248,11 +249,11 @@ export default function TeacherDashboard({
             setActiveTab('clubs');
             setClubSubTab('class_overview');
           }}
-          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-md transition-all group shadow-xs"
+          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-indigo-400 card-hover btn-press transition-all group shadow-xs animate-fade-in-up stagger-3"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <span>Охват внеурочкой</span>
-            <Sparkles className="w-4 h-4 text-indigo-500" />
+            <Sparkles className="w-4 h-4 text-indigo-500 transition-transform group-hover:rotate-12" />
           </div>
           <div className="text-3xl font-extrabold text-indigo-600 mt-2">{coveragePercent}%</div>
           <div className="text-xs text-slate-500 mt-1">
@@ -266,14 +267,14 @@ export default function TeacherDashboard({
         <button
           type="button"
           onClick={() => setIsRosterOpen(true)}
-          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-blue-400 hover:shadow-md transition-all group shadow-xs"
+          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-blue-400 card-hover btn-press transition-all group shadow-xs animate-fade-in-up stagger-4"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <span>Учеников в классе</span>
-            <Users className="w-4 h-4 text-blue-500" />
+            <Users className="w-4 h-4 text-blue-500 transition-transform group-hover:scale-110" />
           </div>
           <div className="text-3xl font-extrabold text-slate-900 mt-2">28</div>
-          <div className="text-xs text-blue-600 font-medium mt-1">Журнал посещаемости →</div>
+          <div className="text-xs text-blue-600 font-medium mt-1 group-hover:translate-x-1 transition-transform inline-block">Журнал посещаемости →</div>
         </button>
       </div>
 

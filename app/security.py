@@ -165,18 +165,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if "x-frame-options" in response.headers:
+            del response.headers["x-frame-options"]
+        if "X-Frame-Options" in response.headers:
+            del response.headers["X-Frame-Options"]
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com data:; "
-            "img-src 'self' data: https: blob:; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
+            "img-src 'self' data: https: blob: https://fastapi.tiangolo.com; "
             "connect-src 'self' ws: wss:; "
-            "frame-ancestors 'self';"
+            "frame-ancestors 'self' https://*.vk.com https://*.vk.me https://*.sferum.ru;"
         )
         return response
 

@@ -6,7 +6,7 @@ import NotificationPopup from './components/NotificationPopup';
 import AuthPage from './pages/AuthPage';
 import TeacherDashboard from './pages/TeacherDashboard';
 import StudentDashboard from './pages/StudentDashboard';
-import { login, simulateAbsence, getAbsences, getClubApplications } from './api';
+import { login, quickLogin, simulateAbsence, getAbsences, getClubApplications } from './api';
 import type { Absence, ClubApplication, NotificationItem, ToastMessage, ToastType, User } from './types';
 
 export default function App(): React.JSX.Element {
@@ -46,29 +46,60 @@ export default function App(): React.JSX.Element {
       return;
     }
 
-    const fetchNotifications = (): void => {
-      Promise.all([
-        getAbsences(currentUser.class_name),
-        getClubApplications(),
-      ])
-        .then(([abs, apps]) => {
-          setAbsences(abs || []);
-          if (currentUser.role === 'teacher') {
-            setApplications(apps || []);
-          } else {
-            setApplications(
-              (apps || []).filter(
-                (a) => a.student_name.trim().toLowerCase() === currentUser.full_name.trim().toLowerCase()
-              )
-            );
-          }
-        })
-        .catch(() => { });
+    let failureCount = 0;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let isCancelled = false;
+
+    const poll = async () => {
+      // 1. Page Visibility API: предотвращение троттлинга и запросов из фоновых вкладок
+      if (document.hidden) {
+        timerId = setTimeout(poll, 4000);
+        return;
+      }
+
+      try {
+        const [abs, apps] = await Promise.all([
+          getAbsences(currentUser.class_name),
+          getClubApplications(),
+        ]);
+        if (isCancelled) return;
+        failureCount = 0;
+        setAbsences(abs || []);
+        if (currentUser.role === 'teacher') {
+          setApplications(apps || []);
+        } else {
+          setApplications(
+            (apps || []).filter(
+              (a) => a.student_name.trim().toLowerCase() === currentUser.full_name.trim().toLowerCase()
+            )
+          );
+        }
+      } catch (err) {
+        failureCount++;
+        console.warn(`[Sync] Ошибка фоновой синхронизации (попытка ${failureCount}):`, err);
+      }
+
+      if (!isCancelled) {
+        // Экспоненциальный backoff: при стабильной сети 3.5с, при сбоях мобильного Wi-Fi плавно растет до 20с
+        const nextDelay = failureCount === 0 ? 3500 : Math.min(3500 * Math.pow(1.5, failureCount), 20000);
+        timerId = setTimeout(poll, nextDelay);
+      }
     };
 
-    fetchNotifications();
-    const timer = setInterval(fetchNotifications, 3500);
-    return () => clearInterval(timer);
+    poll();
+
+    const handleVisibility = () => {
+      if (!document.hidden && !isCancelled) {
+        poll();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      isCancelled = true;
+      if (timerId) clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [currentUser, refreshKey]);
 
   const handleLoginSuccess = (user: User): void => {
@@ -84,9 +115,9 @@ export default function App(): React.JSX.Element {
     showToast('Вы вышли из системы', 'info');
   };
 
-  const handleSwitchUser = async (email: string, pass: string): Promise<void> => {
+  const handleSwitchUser = async (email: string, pass?: string): Promise<void> => {
     try {
-      const user = await login(email, pass);
+      const user = pass ? await login(email, pass) : await quickLogin(undefined, email);
       handleLoginSuccess(user);
       triggerRefresh();
     } catch (err) {

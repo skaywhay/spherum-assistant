@@ -13,37 +13,82 @@ from reportlab.lib.utils import ImageReader
 
 FONT_REGULAR = "Helvetica"
 FONT_BOLD = "Helvetica-Bold"
+HAS_CYRILLIC_FONT = False
+
+CYRILLIC_MAP = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+    'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+    'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts',
+    'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+    'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo', 'Ж': 'Zh',
+    'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O',
+    'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts',
+    'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch', 'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya',
+    '«': '"', '»': '"', '—': '-', '–': '-', '№': 'No.',
+}
+
+def safe_text(val: Any) -> str:
+    """Безопасный вывод текста: при отсутствии кириллического шрифта транслитерирует символы."""
+    s = str(val) if val is not None else ""
+    if HAS_CYRILLIC_FONT:
+        return s
+    res = []
+    for ch in s:
+        if ch in CYRILLIC_MAP:
+            res.append(CYRILLIC_MAP[ch])
+        elif ord(ch) < 128:
+            res.append(ch)
+        else:
+            res.append('?')
+    return "".join(res)
 
 def _setup_fonts():
-    global FONT_REGULAR, FONT_BOLD
+    global FONT_REGULAR, FONT_BOLD, HAS_CYRILLIC_FONT
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    bundled_regular = os.path.join(base_dir, "fonts", "DejaVuSans.ttf")
+    bundled_bold = os.path.join(base_dir, "fonts", "DejaVuSans-Bold.ttf")
+
     candidate_regular = [
+        bundled_regular,
         r"C:\Windows\Fonts\arial.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     ]
     candidate_bold = [
+        bundled_bold,
         r"C:\Windows\Fonts\arialbd.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     ]
 
+    reg_ok = False
     for p in candidate_regular:
         if os.path.exists(p):
             try:
                 pdfmetrics.registerFont(TTFont("CustomArial", p))
                 FONT_REGULAR = "CustomArial"
+                reg_ok = True
                 break
             except Exception:
                 pass
 
+    bold_ok = False
     for p in candidate_bold:
         if os.path.exists(p):
             try:
                 pdfmetrics.registerFont(TTFont("CustomArial-Bold", p))
                 FONT_BOLD = "CustomArial-Bold"
+                bold_ok = True
                 break
             except Exception:
                 pass
+
+    if reg_ok:
+        HAS_CYRILLIC_FONT = True
+        if not bold_ok:
+            FONT_BOLD = FONT_REGULAR
 
 _setup_fonts()
 
@@ -83,7 +128,7 @@ def draw_official_stamp(c: canvas.Canvas, center_x: float, center_y: float, radi
     c.drawCentredString(center_x, center_y - 5, "И ДОКУМЕНТОВ")
 
     # Текст по кругу
-    top_text = "ГБУЗ «ДГП № 42 ДЗМ» * МОСКВА *"
+    top_text = safe_text("ГБУЗ «ДГП № 42 ДЗМ» * МОСКВА *")
     c.setFont(FONT_BOLD, 5.5)
     chars = list(top_text)
     angle_step = 180 / max(len(chars), 1)
@@ -95,7 +140,7 @@ def draw_official_stamp(c: canvas.Canvas, center_x: float, center_y: float, radi
         y = center_y + r_text * math.sin(ang)
         c.drawString(x - 2, y - 2, ch)
 
-    bottom_text = "* ОГРН 1037739000000 *"
+    bottom_text = safe_text("* ОГРН 1037739000000 *")
     b_chars = list(bottom_text)
     b_step = 160 / max(len(b_chars), 1)
     for i, ch in enumerate(b_chars):
@@ -138,6 +183,14 @@ def generate_absence_pdf(absence: Dict[str, Any], base_url: str = "http://localh
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
+
+    # Оборачиваем методы вывода текста в безопасный transliteration-fallback при отсутствии TTF
+    orig_drawString = c.drawString
+    orig_drawCentredString = c.drawCentredString
+    orig_drawRightString = c.drawRightString
+    c.drawString = lambda x, y, text: orig_drawString(x, y, safe_text(text))
+    c.drawCentredString = lambda x, y, text: orig_drawCentredString(x, y, safe_text(text))
+    c.drawRightString = lambda x, y, text: orig_drawRightString(x, y, safe_text(text))
 
     # 1. Шапка медицинского учреждения (левый верхний угол)
     c.setFont(FONT_BOLD, 8)

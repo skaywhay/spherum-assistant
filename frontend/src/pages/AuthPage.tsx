@@ -1,5 +1,5 @@
 import React, { useState, useEffect, type FormEvent } from 'react';
-import { login, register, vkMiniAppLogin } from '../api';
+import { login, register, quickLogin, vkMiniAppLogin } from '../api';
 import { parseVKLaunchParams, getVKUserInfo } from '../vkBridge';
 import { UserCheck, ArrowRight, Info, X, Sparkles } from 'lucide-react';
 import type { ToastType, User, UserRole } from '../types';
@@ -10,7 +10,6 @@ interface DemoAccountItem {
   badge: string;
   roleType: UserRole;
   email: string;
-  pass: string;
 }
 
 const DEMO_ACCOUNTS: DemoAccountItem[] = [
@@ -20,7 +19,6 @@ const DEMO_ACCOUNTS: DemoAccountItem[] = [
     badge: 'Учитель 9-А',
     roleType: 'teacher',
     email: 'teacher9a@sferum.ru',
-    pass: 'password123',
   },
   {
     title: 'Васильев Михаил Сергеевич',
@@ -28,7 +26,6 @@ const DEMO_ACCOUNTS: DemoAccountItem[] = [
     badge: 'Учитель 10-Б',
     roleType: 'teacher',
     email: 'teacher10b@sferum.ru',
-    pass: 'password123',
   },
   {
     title: 'Кузнецов Артём',
@@ -36,7 +33,6 @@ const DEMO_ACCOUNTS: DemoAccountItem[] = [
     badge: 'Ученик 9-А',
     roleType: 'student',
     email: 'student9a@sferum.ru',
-    pass: 'password123',
   },
   {
     title: 'Морозова София',
@@ -44,7 +40,6 @@ const DEMO_ACCOUNTS: DemoAccountItem[] = [
     badge: 'Ученик 10-Б',
     roleType: 'student',
     email: 'student10b@sferum.ru',
-    pass: 'password123',
   },
 ];
 
@@ -147,11 +142,11 @@ export default function AuthPage({ onLoginSuccess, showToast }: AuthPageProps): 
 
   const handleDemoClick = async (demo: DemoAccountItem): Promise<void> => {
     setEmail(demo.email);
-    setPassword(demo.pass);
+    setPassword('');
     setError(null);
     setLoading(true);
     try {
-      const user = await login(demo.email, demo.pass);
+      const user = await quickLogin(demo.roleType, demo.email);
       onLoginSuccess(user);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Ошибка демо-входа';
@@ -189,19 +184,20 @@ export default function AuthPage({ onLoginSuccess, showToast }: AuthPageProps): 
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-6">
-              {DEMO_ACCOUNTS.map((acc) => {
+              {DEMO_ACCOUNTS.map((acc, idx) => {
                 const isTeacher = acc.roleType === 'teacher';
+                const staggerClass = `stagger-${(idx % 4) + 1}`;
                 return (
                   <button
                     key={acc.email}
                     type="button"
                     onClick={() => handleDemoClick(acc)}
                     disabled={loading}
-                    className="text-left p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md hover:bg-blue-50/20 transition-all duration-150 flex flex-col justify-between group bg-slate-50/50"
+                    className={`text-left p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/20 card-hover btn-press flex flex-col justify-between group bg-slate-50/50 animate-fade-in-up ${staggerClass}`}
                   >
                     <div>
                       <span
-                        className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded mb-2 ${
+                        className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded mb-2 transition-transform group-hover:scale-105 ${
                           isTeacher
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-emerald-100 text-emerald-800'
@@ -215,7 +211,7 @@ export default function AuthPage({ onLoginSuccess, showToast }: AuthPageProps): 
                       <p className="text-xs text-slate-500 mt-0.5">{acc.role}</p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform">
+                    <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs font-semibold text-blue-600 group-hover:translate-x-1 transition-transform">
                       <span>Войти в аккаунт</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </div>

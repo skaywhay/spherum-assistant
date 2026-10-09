@@ -41,6 +41,20 @@ export async function login(email: string, password: string): Promise<User> {
   return data.user;
 }
 
+export async function quickLogin(role: string = 'teacher', email?: string): Promise<User> {
+  const res = await fetch(`${API_BASE}/auth/quick-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role, email }),
+  });
+  const data: AuthResponse & { detail?: string } = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Ошибка быстрого входа');
+  if (data.token) {
+    localStorage.setItem('sferum_token', data.token);
+  }
+  return data.user;
+}
+
 export async function register(userData: RegisterPayload): Promise<User> {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',

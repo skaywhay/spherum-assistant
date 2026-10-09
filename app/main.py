@@ -50,8 +50,13 @@ from app.pdf_generator import generate_absence_pdf
 app = FastAPI(
     title="Сферум.Ассистент",
     docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
     redoc_url=None
 )
+
+@app.get("/docs", include_in_schema=False)
+def docs_redirect():
+    return RedirectResponse(url="/api/docs")
 
 # 1. Заголовки безопасности (CSP, X-Content-Type-Options, X-Frame-Options и др.)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -59,10 +64,23 @@ app.add_middleware(SecurityHeadersMiddleware)
 # 2. Rate-limiter (защита от брутфорса) и лимитер размера тела (защита от DoS)
 app.add_middleware(RateLimitAndPayloadMiddleware)
 
-# 3. CORS
+# 3. CORS: явный список доверенных origins вместо wildcard '*' с credentials=True
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://web.vk.me",
+    "https://vk.com",
+    "https://sferum.ru",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://([a-zA-Z0-9-]+\.)*(vk\.(com|me)|sferum\.ru)$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -71,9 +89,17 @@ app.add_middleware(
 
 def require_teacher(authorization: Optional[str] = Header(None)) -> bool:
     if not authorization:
-        return True
+        raise HTTPException(
+            status_code=401,
+            detail="Требуется авторизация: заголовок Authorization отсутствует"
+        )
     user = verify_signed_token(authorization)
-    if user and user.get("role") not in ("teacher", "admin"):
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Недействительный или истекший токен авторизации"
+        )
+    if user.get("role") not in ("teacher", "admin"):
         raise HTTPException(
             status_code=403,
             detail="Доступ запрещен: действие доступно только классному руководителю"
@@ -147,7 +173,8 @@ class RegisterRequest(BaseModel):
 
 
 class QuickLoginRequest(BaseModel):
-    role: str
+    role: Optional[str] = "teacher"
+    email: Optional[str] = None
 
 
 class TaskCreate(BaseModel):
@@ -327,13 +354,19 @@ def register(data: RegisterRequest):
 
 @app.post("/api/auth/quick-login")
 def quick_login(data: QuickLoginRequest):
-    role = "teacher" if data.role == "teacher" else "student"
-    email = "teacher9a@sferum.ru" if role == "teacher" else "student9a@sferum.ru"
-    user = get_user_by_email(email)
+    user = None
+    if data.email:
+        user = get_user_by_email(data.email.strip().lower())
+
+    if not user:
+        role = "teacher" if data.role == "teacher" else "student"
+        email = "teacher9a@sferum.ru" if role == "teacher" else "student9a@sferum.ru"
+        user = get_user_by_email(email)
+
     if not user:
         # Fallback на любого первого пользователя с нужной ролью
         all_users = [get_user_by_email("teacher10b@sferum.ru"), get_user_by_email("student10b@sferum.ru")]
-        matched = [u for u in all_users if u and u["role"] == role]
+        matched = [u for u in all_users if u and u["role"] == (data.role or "teacher")]
         user = matched[0] if matched else None
 
     if not user:
@@ -422,7 +455,18 @@ def verify_document_endpoint(absence_id: int):
     dates = absence.get("dates", "—")
     reason = absence.get("reason", "—")
     status = absence.get("status", "pending")
-    status_text = "Одобрено" if status == "approved" else ("Отклонено" if status == "rejected" else "На рассмотрении")
+    def mask_student_name(name: str) -> str:
+        parts = name.strip().split()
+        if not parts:
+            return "—"
+        if len(parts) == 1:
+            return f"{parts[0][:1]}***"
+        last_name = parts[0]
+        initials = "".join([f" {p[0]}.*" for p in parts[1:]])
+        return f"{last_name}{initials}"
+
+    masked_student = mask_student_name(student_name)
+    status_text = "Подтверждена" if status == "approved" else ("Отклонена" if status == "rejected" else "На рассмотрении")
     status_color = "#16a34a" if status == "approved" else ("#dc2626" if status == "rejected" else "#ea580c")
 
     doc_hash = hashlib.sha256(f"{absence_id}:{student_name}:{dates}:{reason}".encode("utf-8")).hexdigest().upper()
@@ -558,22 +602,26 @@ def verify_document_endpoint(absence_id: int):
             </div>
             <div class="info-row">
                 <span class="label">Обучающийся:</span>
-                <span class="value">{student_name} ({class_name})</span>
+                <span class="value">{masked_student} ({class_name})</span>
             </div>
             <div class="info-row">
-                <span class="label">Период:</span>
+                <span class="label">Срок действия:</span>
                 <span class="value">{dates}</span>
             </div>
             <div class="info-row">
-                <span class="label">Причина:</span>
-                <span class="value">{reason}</span>
+                <span class="label">Форма документа:</span>
+                <span class="value">Форма 095/у (Временная нетрудоспособность)</span>
             </div>
             <div class="info-row">
-                <span class="label">Статус в системе:</span>
-                <span class="value" style="color: {status_color};">{status_text}</span>
+                <span class="label">Диагноз (152-ФЗ):</span>
+                <span class="value" style="color: #64748B; font-weight: 500;">Сведения защищены (ст. 10 152-ФЗ, врачебная тайна)</span>
             </div>
             <div class="info-row">
-                <span class="label">Организация:</span>
+                <span class="label">Статус в реестре:</span>
+                <span class="value" style="color: {status_color}; font-weight: 700;">{status_text}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Медорганизация:</span>
                 <span class="value">ГБУЗ ДГП № 38 ДЗМ</span>
             </div>
             <div class="stamp-box">

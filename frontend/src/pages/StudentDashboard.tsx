@@ -95,9 +95,9 @@ export default function StudentDashboard({
       setAbsences(myAbs);
       setClubs(allClubs);
       setApplications(myApps);
-    } catch {
+    } catch (err) {
       if (!silent) {
-        showToast('Ошибка загрузки данных учащегося', 'error');
+        showToast('Проверьте подключение к сети', 'error');
       }
     }
   }, [user.class_name, user.full_name, showToast]);
@@ -105,8 +105,9 @@ export default function StudentDashboard({
   useEffect(() => {
     loadData();
     const interval = setInterval(() => {
+      if (document.hidden) return;
       loadData(true);
-    }, 3000);
+    }, 4000);
     return () => clearInterval(interval);
   }, [loadData, refreshTrigger]);
 
@@ -190,11 +191,11 @@ export default function StudentDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('my_clubs')}
-          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-md transition-all group shadow-xs"
+          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-indigo-400 card-hover btn-press transition-all group shadow-xs animate-fade-in-up stagger-1"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <span>Мои секции</span>
-            <Sparkles className="w-4 h-4 text-indigo-500" />
+            <Sparkles className="w-4 h-4 text-indigo-500 transition-transform group-hover:rotate-12" />
           </div>
           <div className="text-3xl font-extrabold text-indigo-600 mt-2">{applications.length}</div>
           <div className="text-xs text-slate-500 mt-1">
@@ -205,11 +206,11 @@ export default function StudentDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-blue-400 hover:shadow-md transition-all group shadow-xs"
+          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-blue-400 card-hover btn-press transition-all group shadow-xs animate-fade-in-up stagger-2"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <span>Подано справок</span>
-            <FileText className="w-4 h-4 text-blue-500" />
+            <FileText className="w-4 h-4 text-blue-500 transition-transform group-hover:scale-110" />
           </div>
           <div className="text-3xl font-extrabold text-slate-900 mt-2">{absences.length}</div>
           <div className="text-xs text-slate-500 mt-1">Всего обращений в класс</div>
@@ -218,11 +219,11 @@ export default function StudentDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-emerald-400 hover:shadow-md transition-all group shadow-xs"
+          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-emerald-400 card-hover btn-press transition-all group shadow-xs animate-fade-in-up stagger-3"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <span>Одобрено</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 transition-transform group-hover:scale-110" />
           </div>
           <div className="text-3xl font-extrabold text-emerald-600 mt-2">{approvedCount}</div>
           <div className="text-xs text-slate-500 mt-1">Согласовано учителем</div>
@@ -231,11 +232,11 @@ export default function StudentDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-amber-400 hover:shadow-md transition-all group shadow-xs"
+          className="text-left bg-white border border-slate-200/80 rounded-2xl p-5 hover:border-amber-400 card-hover btn-press transition-all group shadow-xs animate-fade-in-up stagger-4"
         >
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <span>На проверке</span>
-            <Clock className="w-4 h-4 text-amber-500" />
+            <Clock className="w-4 h-4 text-amber-500 transition-transform group-hover:rotate-12" />
           </div>
           <div className="text-3xl font-extrabold text-amber-600 mt-2">{pendingCount}</div>
           <div className="text-xs text-slate-500 mt-1">Ожидает решения</div>
